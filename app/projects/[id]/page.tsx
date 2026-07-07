@@ -1,82 +1,204 @@
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
-import DeleteProjectButton from "@/components/projects/DeleteProjectButton";
+import ProjectAIAnalysis from "./ProjectAIAnalysis";
 
-type Props = {
-  params: Promise<{
-    id: string;
-  }>;
-};
+async function getProject(id: string) {
+  const res = await fetch(`http://localhost:3000/api/projects/${id}`, {
+    cache: "no-store",
+  });
 
-export default async function ProjectDetailsPage({ params }: Props) {
+  if (!res.ok) {
+    return null;
+  }
+
+  return res.json();
+}
+
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
 
-  const projectId = Number(id);
-
-  const project = await prisma.project.findUnique({
-    where: {
-      id: projectId,
-    },
-  });
+  const project = await getProject(id);
 
   if (!project) {
     return (
       <main className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
-        <p className="text-slate-400 text-lg">المشروع غير موجود</p>
+        <h1 className="text-2xl font-bold">
+          المشروع غير موجود
+        </h1>
       </main>
     );
   }
 
+  const people =
+    project.projectEntities?.filter(
+      (item: any) => item.entity.type === "person"
+    ) || [];
+
+  const places =
+    project.projectEntities?.filter(
+      (item: any) => item.entity.type === "place"
+    ) || [];
+
+  const events =
+    project.projectEntities?.filter(
+      (item: any) => item.entity.type === "event"
+    ) || [];
+
   return (
     <main className="min-h-screen bg-slate-950 text-white">
-      <div className="mx-auto max-w-4xl px-6 py-16">
-        {/* Header */}
-        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="mx-auto max-w-6xl px-6 py-10 space-y-8">
+
+        <div className="flex items-center justify-between">
           <h1 className="text-4xl font-black">
             {project.title}
           </h1>
 
-          <div className="flex gap-3">
-            <Link
-              href={`/projects/${project.id}/edit`}
-              className="inline-flex items-center justify-center rounded-xl bg-white px-5 py-2 font-medium text-black transition hover:bg-slate-200"
-            >
-              ✏️ تعديل المشروع
-            </Link>
-
-            <DeleteProjectButton projectId={project.id} />
-          </div>
+          <Link
+            href="/projects"
+            className="rounded-xl bg-slate-800 px-4 py-2 hover:bg-slate-700"
+          >
+            رجوع
+          </Link>
         </div>
 
-        {/* Description */}
-        <p className="mb-8 leading-relaxed text-slate-300">
-          {project.description}
-        </p>
+        <div className="rounded-2xl border border-white/10 bg-slate-900 p-6">
 
-        {/* Details */}
-        <div className="rounded-2xl border border-white/10 bg-slate-900/50 p-6">
-          <div className="space-y-3 text-slate-300">
-            <p>
-              <span className="font-semibold">📜 الفترة:</span>{" "}
-              {project.period}
-            </p>
+          <h2 className="text-xl font-bold mb-4">
+            وصف المشروع
+          </h2>
 
-            <p>
-              <span className="font-semibold">🌍 الإقليم:</span>{" "}
-              {project.region}
-            </p>
+          <p className="leading-8 text-slate-300">
+            {project.description}
+          </p>
 
-            <p>
-              <span className="font-semibold">🗣 اللغة:</span>{" "}
-              {project.language}
-            </p>
-
-            <p>
-              <span className="font-semibold">📅 تاريخ الإنشاء:</span>{" "}
-              {new Date(project.createdAt).toLocaleDateString("ar-EG")}
-            </p>
+          <div className="mt-6 text-sm text-slate-400">
+            📜 {project.period}
           </div>
+
         </div>
+
+        {project.summary && (
+          <div className="rounded-2xl border border-cyan-500/30 bg-cyan-950/20 p-6">
+
+            <h2 className="mb-4 text-xl font-bold text-cyan-300">
+              ملخص الذكاء الاصطناعي
+            </h2>
+
+            <p className="leading-8 text-slate-300">
+              {project.summary}
+            </p>
+
+          </div>
+        )}
+
+        <div className="grid gap-6 md:grid-cols-3">
+
+          <div className="rounded-2xl border border-white/10 bg-slate-900 p-6">
+
+            <h2 className="mb-5 text-xl font-bold">
+              👤 الأشخاص
+            </h2>
+
+            {people.length === 0 ? (
+              <p className="text-slate-500">
+                لا يوجد
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {people.map((item: any) => (
+                  <Link
+                    key={item.entity.id}
+                    href={`/entities/person/${item.entity.slug}`}
+                    className="block rounded-lg bg-slate-800 p-3 hover:bg-slate-700"
+                  >
+                    {item.entity.name}
+                  </Link>
+                ))}
+              </div>
+            )}
+
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-slate-900 p-6">
+
+            <h2 className="mb-5 text-xl font-bold">
+              📍 الأماكن
+            </h2>
+
+            {places.length === 0 ? (
+              <p className="text-slate-500">
+                لا يوجد
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {places.map((item: any) => (
+                  <Link
+                    key={item.entity.id}
+                    href={`/entities/place/${item.entity.slug}`}
+                    className="block rounded-lg bg-slate-800 p-3 hover:bg-slate-700"
+                  >
+                    {item.entity.name}
+                  </Link>
+                ))}
+              </div>
+            )}
+
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-slate-900 p-6">
+
+            <h2 className="mb-5 text-xl font-bold">
+              ⚔️ الأحداث
+            </h2>
+
+            {events.length === 0 ? (
+              <p className="text-slate-500">
+                لا يوجد
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {events.map((item: any) => (
+                  <Link
+                    key={item.entity.id}
+                    href={`/entities/event/${item.entity.slug}`}
+                    className="block rounded-lg bg-slate-800 p-3 hover:bg-slate-700"
+                  >
+                    {item.entity.name}
+                  </Link>
+                ))}
+              </div>
+            )}
+
+          </div>
+
+        </div>
+
+        {project.documents?.length > 0 && (
+          <div className="rounded-2xl border border-white/10 bg-slate-900 p-6">
+
+            <h2 className="mb-5 text-xl font-bold">
+              📄 المستندات
+            </h2>
+
+            <div className="space-y-2">
+              {project.documents.map((doc: any) => (
+                <div
+                  key={doc.id}
+                  className="rounded-lg bg-slate-800 p-3"
+                >
+                  {doc.fileName}
+                </div>
+              ))}
+            </div>
+
+          </div>
+        )}
+
+        <ProjectAIAnalysis project={project} />
+
       </div>
     </main>
   );

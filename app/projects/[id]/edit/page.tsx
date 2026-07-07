@@ -10,8 +10,6 @@ type ProjectForm = {
   title: string;
   description: string;
   period: string;
-  region: string;
-  language: string;
 };
 
 export default function EditProjectPage() {
@@ -20,11 +18,7 @@ export default function EditProjectPage() {
 
   const projectId = params.id;
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-  } = useForm<ProjectForm>();
+  const { register, handleSubmit, reset } = useForm<ProjectForm>();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -54,8 +48,6 @@ export default function EditProjectPage() {
           title: project.title,
           description: project.description,
           period: project.period,
-          region: project.region,
-          language: project.language,
         });
       } catch {
         setError("تعذر تحميل المشروع");
@@ -110,44 +102,21 @@ export default function EditProjectPage() {
           onSubmit={handleSubmit(onSubmit)}
           className="space-y-8 rounded-3xl border border-white/10 bg-slate-900/60 p-8"
         >
-          <AtharInput
-            label="اسم المشروع"
-            {...register("title")}
-          />
+          <AtharInput label="اسم المشروع" {...register("title")} />
 
-          <AtharInput
-            label="وصف المشروع"
-            {...register("description")}
-          />
+          <AtharInput label="وصف المشروع" {...register("description")} />
 
-          <div className="grid gap-6 md:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-2">
             <AtharInput
               label="الفترة التاريخية"
               {...register("period")}
             />
-
-            <AtharInput
-              label="الإقليم"
-              {...register("region")}
-            />
-
-            <AtharInput
-              label="اللغة"
-              {...register("language")}
-            />
           </div>
 
-          {error && (
-            <p className="text-red-400">
-              {error}
-            </p>
-          )}
+          {error && <p className="text-red-400">{error}</p>}
 
           <div className="flex justify-end">
-            <AtharButton
-              type="submit"
-              disabled={saving}
-            >
+            <AtharButton type="submit" disabled={saving}>
               {saving ? "جارٍ الحفظ..." : "حفظ التعديلات"}
             </AtharButton>
           </div>

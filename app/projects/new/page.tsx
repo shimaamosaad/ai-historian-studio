@@ -34,20 +34,26 @@ export default function NewProjectPage() {
         body: JSON.stringify(data),
       });
 
+      const body = await res.json();
+
       if (!res.ok) {
-        throw new Error("Failed to create project");
+        console.error("API Error:", body);
+        throw new Error(body.error || "Failed to create project");
       }
 
-      const result = await res.json();
-
-      console.log("Created:", result);
+      console.log("Created:", body);
 
       reset();
 
       router.push("/projects");
     } catch (err) {
       console.error(err);
-      setError("حدث خطأ أثناء إنشاء المشروع");
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "حدث خطأ أثناء إنشاء المشروع"
+      );
     } finally {
       setLoading(false);
     }

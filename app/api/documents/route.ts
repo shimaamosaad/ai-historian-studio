@@ -1,23 +1,24 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
+    const projectId = searchParams.get("projectId");
+
     const documents = await prisma.document.findMany({
-      include: {
-        project: true,
-      },
+      where: projectId
+        ? { projectId: Number(projectId) }
+        : undefined,
       orderBy: {
         createdAt: "desc",
       },
     });
 
     return NextResponse.json(documents);
-  } catch (error) {
-    console.error("GET /api/documents:", error);
-
+  } catch (error: any) {
     return NextResponse.json(
-      { error: "Failed to fetch documents" },
+      { error: error.message || "Failed to fetch documents" },
       { status: 500 }
     );
   }

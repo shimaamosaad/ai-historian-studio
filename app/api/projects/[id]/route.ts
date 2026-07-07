@@ -7,9 +7,61 @@ type Params = {
   }>;
 };
 
-export async function PUT(request: NextRequest, { params }: Params) {
+export async function GET(
+  request: NextRequest,
+  { params }: Params
+) {
   try {
     const { id } = await params;
+
+    const projectId = Number(id);
+
+    if (Number.isNaN(projectId)) {
+      return NextResponse.json(
+        { error: "Invalid project id" },
+        { status: 400 }
+      );
+    }
+
+    const project = await prisma.project.findUnique({
+      where: {
+        id: projectId,
+      },
+      include: {
+        documents: true,
+        projectEntities: {
+          include: {
+            entity: true,
+          },
+        },
+      },
+    });
+
+    if (!project) {
+      return NextResponse.json(
+        { error: "Project not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(project);
+  } catch (error) {
+    console.error(error);
+
+    return NextResponse.json(
+      { error: "Failed to load project" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(
+  request: NextRequest,
+  { params }: Params
+) {
+  try {
+    const { id } = await params;
+
     const projectId = Number(id);
 
     if (Number.isNaN(projectId)) {
@@ -21,17 +73,15 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
     const body = await request.json();
 
-    const { title, description, period, region, language } = body;
+    const data: any = {};
 
-    if (
-      !title ||
-      !description ||
-      !period ||
-      !region ||
-      !language
-    ) {
+    if (body.title !== undefined) data.title = body.title;
+    if (body.description !== undefined) data.description = body.description;
+    if (body.period !== undefined) data.period = body.period;
+
+    if (!data.title || !data.description || !data.period) {
       return NextResponse.json(
-        { error: "All fields are required" },
+        { error: "Missing required fields" },
         { status: 400 }
       );
     }
@@ -40,13 +90,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
       where: {
         id: projectId,
       },
-      data: {
-        title,
-        description,
-        period,
-        region,
-        language,
-      },
+      data,
     });
 
     return NextResponse.json(project);
@@ -66,6 +110,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+
     const projectId = Number(id);
 
     if (Number.isNaN(projectId)) {
@@ -75,6 +120,21 @@ export async function DELETE(
       );
     }
 
+    // حذف العلاقات مع الكيانات
+    await prisma.projectEntity.deleteMany({
+      where: {
+        projectId,
+      },
+    });
+
+    // حذف المستندات التابعة للمشروع
+    await prisma.document.deleteMany({
+      where: {
+        projectId,
+      },
+    });
+
+    // حذف المشروع
     await prisma.project.delete({
       where: {
         id: projectId,
@@ -88,8 +148,15 @@ export async function DELETE(
     console.error(error);
 
     return NextResponse.json(
-      { error: "Failed to delete project" },
-      { status: 500 }
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to delete project",
+      },
+      {
+        status: 500,
+      }
     );
   }
 }
