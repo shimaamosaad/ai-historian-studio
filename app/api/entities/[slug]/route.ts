@@ -1,18 +1,17 @@
-import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
-
-type Params = {
-  params: Promise<{
-    slug: string;
-  }>;
-};
+import { prisma } from "@/lib/prisma";
 
 export async function GET(
   request: NextRequest,
-  { params }: Params
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
     const { slug } = await params;
+
+    console.log("==================================");
+    console.log("Slug:", slug);
+    console.log("Decoded:", decodeURIComponent(slug));
+    console.log("==================================");
 
     const entity = await prisma.entity.findUnique({
       where: {
@@ -21,10 +20,14 @@ export async function GET(
       include: {
         projectEntities: {
           include: {
-            project: true,
-          },
-          orderBy: {
-            createdAt: "desc",
+            project: {
+              select: {
+                id: true,
+                title: true,
+                period: true,
+                summary: true,
+              },
+            },
           },
         },
       },
@@ -41,7 +44,18 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(entity);
+    return NextResponse.json({
+      id: entity.id,
+      name: entity.name,
+      slug: entity.slug,
+      type: entity.type,
+      summary: entity.summary,
+      description: entity.description,
+      metadata: entity.metadata,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+      projects: entity.projectEntities.map((relation) => relation.project),
+    });
   } catch (error) {
     console.error(error);
 
@@ -50,7 +64,7 @@ export async function GET(
         error:
           error instanceof Error
             ? error.message
-            : "Failed to load entity",
+            : "Unknown error",
       },
       {
         status: 500,
