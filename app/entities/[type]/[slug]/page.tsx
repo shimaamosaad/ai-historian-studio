@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
+import KnowledgeGraph from "@/components/graph/KnowledgeGraph";
 
 async function getEntity(type: string, slug: string) {
   const headersList = await headers();
@@ -96,6 +97,92 @@ export default async function EntityPage({
             </p>
           </div>
         )}
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="rounded-2xl border border-green-500/30 bg-green-950/20 p-6">
+            <h2 className="mb-5 text-xl font-bold text-green-300">
+              ➜ العلاقات الصادرة
+            </h2>
+
+            {entity.outgoingRelations.length === 0 ? (
+              <p className="text-slate-500">
+                لا توجد علاقات.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {entity.outgoingRelations.map((item: any) => (
+                  <div
+                    key={item.id}
+                    className="rounded-xl bg-slate-900 p-4"
+                  >
+                    <div className="font-bold text-green-400">
+                      {item.relation}
+                    </div>
+
+                    <Link
+                      href={`/entities/${item.target.type}/${item.target.slug}`}
+                      className="mt-2 block text-lg hover:text-cyan-400"
+                    >
+                      {item.target.name}
+                    </Link>
+
+                    {item.target.summary && (
+                      <p className="mt-2 text-sm text-slate-400">
+                        {item.target.summary}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-purple-500/30 bg-purple-950/20 p-6">
+            <h2 className="mb-5 text-xl font-bold text-purple-300">
+              ◀ العلاقات الواردة
+            </h2>
+
+            {entity.incomingRelations.length === 0 ? (
+              <p className="text-slate-500">
+                لا توجد علاقات.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {entity.incomingRelations.map((item: any) => (
+                  <div
+                    key={item.id}
+                    className="rounded-xl bg-slate-900 p-4"
+                  >
+                    <div className="font-bold text-purple-400">
+                      {item.relation}
+                    </div>
+
+                    <Link
+                      href={`/entities/${item.source.type}/${item.source.slug}`}
+                      className="mt-2 block text-lg hover:text-cyan-400"
+                    >
+                      {item.source.name}
+                    </Link>
+
+                    {item.source.summary && (
+                      <p className="mt-2 text-sm text-slate-400">
+                        {item.source.summary}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-cyan-500/30 bg-slate-900 p-6">
+          <h2 className="mb-5 text-xl font-bold text-cyan-300">
+            🌐 الشبكة المعرفية
+          </h2>
+
+          <KnowledgeGraph entity={entity} />
+        </div>
 
         <div className="rounded-2xl border border-white/10 bg-slate-900 p-6">
           <h2 className="mb-5 text-xl font-bold">

@@ -30,6 +30,34 @@ export async function GET(
             },
           },
         },
+
+        outgoingRelations: {
+          include: {
+            target: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                type: true,
+                summary: true,
+              },
+            },
+          },
+        },
+
+        incomingRelations: {
+          include: {
+            source: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                type: true,
+                summary: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -54,7 +82,22 @@ export async function GET(
       metadata: entity.metadata,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
+
       projects: entity.projectEntities.map((relation) => relation.project),
+
+      outgoingRelations: entity.outgoingRelations.map((relation) => ({
+        id: relation.id,
+        relation: relation.relation,
+        confidence: relation.confidence,
+        target: relation.target,
+      })),
+
+      incomingRelations: entity.incomingRelations.map((relation) => ({
+        id: relation.id,
+        relation: relation.relation,
+        confidence: relation.confidence,
+        source: relation.source,
+      })),
     });
   } catch (error) {
     console.error(error);

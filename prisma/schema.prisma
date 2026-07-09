@@ -53,6 +53,9 @@ model Entity {
   updatedAt DateTime @updatedAt
 
   projectEntities ProjectEntity[]
+
+  outgoingRelations EntityRelation[] @relation("SourceEntity")
+  incomingRelations EntityRelation[] @relation("TargetEntity")
 }
 
 model ProjectEntity {
@@ -67,4 +70,25 @@ model ProjectEntity {
   entity  Entity  @relation(fields: [entityId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, entityId])
+}
+
+model EntityRelation {
+  id Int @id @default(autoincrement())
+
+  sourceId Int
+  targetId Int
+
+  relation String
+
+  confidence Float @default(1)
+
+  source Entity @relation("SourceEntity", fields: [sourceId], references: [id], onDelete: Cascade)
+  target Entity @relation("TargetEntity", fields: [targetId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([sourceId])
+  @@index([targetId])
+
+  @@unique([sourceId, relation, targetId], name: "sourceId_relation_targetId")
 }
