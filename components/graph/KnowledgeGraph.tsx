@@ -1,156 +1,180 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+
 import ReactFlow, {
   Background,
   Controls,
   MiniMap,
   Node,
   Edge,
+  MarkerType,
+  NodeMouseHandler,
 } from "reactflow";
 
-type Props = {
-  entity: any;
+import dagre from "@dagrejs/dagre";
+import "reactflow/dist/style.css";
+
+type GraphNode = {
+  id: string;
+  slug: string;
+  label: string;
+  type: string;
+  summary?: string | null;
+  description?: string | null;
+  center?: boolean;
 };
 
-export default function KnowledgeGraph({ entity }: Props) {
+type GraphEdge = {
+  id: string;
+  source: string;
+  target: string;
+  label?: string | null;
+};
+
+type GraphResponse = {
+  center: {
+    id: string;
+    slug: string;
+    name: string;
+    type: string;
+  };
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+};
+
+type Props = {
+  slug: string;
+};
+
+const nodeWidth = 220;
+const nodeHeight = 70;
+
+function layout(nodes: Node[], edges: Edge[]) {
+  const graph = new dagre.graphlib.Graph();
+
+  graph.setDefaultEdgeLabel(() => ({}));
+
+  graph.setGraph({
+    rankdir: "LR",
+    ranksep: 120,
+    nodesep: 40,
+  });
+
+  nodes.forEach((node) => {
+    graph.setNode(node.id, {
+      width: nodeWidth,
+      height: nodeHeight,
+    });
+  });
+
+  edges.forEach((edge) => {
+    graph.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(graph);
+
+  return {
+    nodes: nodes.map((node) => {
+      const p = graph.node(node.id);
+
+      return {
+        ...node,
+        position: {
+          x: p.x - nodeWidth / 2,
+          y: p.y - nodeHeight / 2,
+        },
+      };
+    }),
+    edges,
+  };
+}
+
+export default function KnowledgeGraph({ slug }: Props) {
   const router = useRouter();
 
-  const { nodes, edges } = useMemo(() => {
-    const nodes: Node[] = [];
-    const edges: Edge[] = [];
+  const [nodes, setNodes] = useState<Node[]>([]);
+  const [edges, setEdges] = useState<Edge[]>([]);
+  const [loading, setLoading] = useState(true);
 
-    // الكيان الرئيسي
-    nodes.push({
-      id: entity.slug,
-      position: { x: 300, y: 180 },
+  const fetchGraph = useCallback(async () => {
+  try {
+    setLoading(true);
+
+    const res = await fetch(`/api/graph/${slug}`);
+
+    if (!res.ok) {
+      throw new Error("Failed to load graph");
+    }
+
+    const graph: GraphResponse = await res.json();
+
+    const flowNodes: Node[] = graph.nodes.map((node) => ({
+      id: node.id,
       data: {
-        label: entity.name,
+        slug: node.slug,
+        type: node.type,
+        label: node.label,
       },
+      position: { x: 0, y: 0 },
       style: {
-        background: "#0f766e",
-        color: "#ffffff",
-        border: "2px solid #22d3ee",
         borderRadius: 12,
         padding: 10,
-        fontWeight: "bold",
+        border: node.center
+          ? "2px solid #2563eb"
+          : "1px solid #d1d5db",
+        background: node.center ? "#dbeafe" : "#ffffff",
       },
-    });
+    }));
 
-    // العلاقات الصادرة
-    entity.outgoingRelations.forEach((item: any, index: number) => {
-      const x = 650;
-      const y = 70 + index * 160;
+    const flowEdges: Edge[] = graph.edges.map((edge) => ({
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      label: edge.label ?? "",
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+      },
+    }));
 
-      nodes.push({
-        id: item.target.slug,
-        position: { x, y },
-        data: {
-          label: item.target.name,
-        },
-        style: {
-          background:
-            item.target.type === "person"
-              ? "#166534"
-              : item.target.type === "place"
-              ? "#1d4ed8"
-              : "#b45309",
-          color: "#ffffff",
-          borderRadius: 12,
-          padding: 10,
-          fontWeight: "bold",
-        },
-      });
+    const layouted = layout(flowNodes, flowEdges);
 
-      edges.push({
-        id: `${entity.slug}-${item.target.slug}`,
-        source: entity.slug,
-        target: item.target.slug,
-        label: item.relation,
-        animated: true,
-        type: "smoothstep",
-      });
-    });
+    setNodes(layouted.nodes);
+    setEdges(layouted.edges);
+  } catch (err) {
+    console.error(err);
+  } finally {
+    setLoading(false);
+  }
+}, [slug]);
 
-    // العلاقات الواردة
-    entity.incomingRelations.forEach((item: any, index: number) => {
-      const x = -50;
-      const y = 70 + index * 160;
+  useEffect(() => {
+    fetchGraph();
+  }, [fetchGraph]);
 
-      nodes.push({
-        id: item.source.slug,
-        position: { x, y },
-        data: {
-          label: item.source.name,
-        },
-        style: {
-          background:
-            item.source.type === "person"
-              ? "#166534"
-              : item.source.type === "place"
-              ? "#1d4ed8"
-              : "#b45309",
-          color: "#ffffff",
-          borderRadius: 12,
-          padding: 10,
-          fontWeight: "bold",
-        },
-      });
+  const onNodeClick: NodeMouseHandler = (_, node) => {
+    router.push(`/entities/${node.data.type}/${node.data.slug}`);
+  };
 
-      edges.push({
-        id: `${item.source.slug}-${entity.slug}`,
-        source: item.source.slug,
-        target: entity.slug,
-        label: item.relation,
-        animated: true,
-        type: "smoothstep",
-      });
-    });
-
-    return { nodes, edges };
-  }, [entity]);
-
+  if (loading) {
   return (
-    <div
-      className="overflow-hidden rounded-2xl border border-slate-700"
-      style={{ width: "100%", height: 600 }}
-    >
+    <div className="flex h-[700px] items-center justify-center rounded-xl border">
+      Loading graph...
+    </div>
+  );
+}
+  return (
+    <div className="h-[700px] w-full rounded-xl border">
       <ReactFlow
         nodes={nodes}
         edges={edges}
         fitView
-        onNodeClick={(_, node) => {
-          if (node.id === entity.slug) return;
-
-          const target =
-            entity.outgoingRelations.find(
-              (r: any) => r.target.slug === node.id
-            )?.target ||
-            entity.incomingRelations.find(
-              (r: any) => r.source.slug === node.id
-            )?.source;
-
-          if (target) {
-            router.push(`/entities/${target.type}/${target.slug}`);
-          }
-        }}
+        onNodeClick={onNodeClick}
       >
-        <MiniMap
-          pannable
-          zoomable
-          nodeStrokeWidth={3}
-          maskColor="rgba(15,23,42,0.25)"
-          style={{
-            background: "#020617",
-            border: "1px solid #334155",
-            borderRadius: 12,
-          }}
-        />
-
+        <MiniMap />
         <Controls />
-
-        <Background gap={24} size={1} />
+        <Background />
       </ReactFlow>
     </div>
   );

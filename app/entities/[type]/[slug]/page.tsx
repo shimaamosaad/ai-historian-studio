@@ -181,7 +181,7 @@ export default async function EntityPage({
             🌐 الشبكة المعرفية
           </h2>
 
-          <KnowledgeGraph entity={entity} />
+          <KnowledgeGraph slug={entity.slug} />
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-slate-900 p-6">
