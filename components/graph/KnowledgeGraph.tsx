@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import ReactFlow, {
@@ -34,7 +34,7 @@ type GraphEdge = {
 };
 
 type GraphResponse = {
-  center: {
+  center?: {
     id: string;
     slug: string;
     name: string;
@@ -48,18 +48,20 @@ type Props = {
   slug: string;
 };
 
-const nodeWidth = 220;
-const nodeHeight = 70;
+const nodeWidth = 240;
+const nodeHeight = 90;
 
-function layout(nodes: Node[], edges: Edge[]) {
+const cache = new Map<string, GraphResponse>();
+
+function applyLayout(nodes: Node[], edges: Edge[]) {
   const graph = new dagre.graphlib.Graph();
 
   graph.setDefaultEdgeLabel(() => ({}));
 
   graph.setGraph({
     rankdir: "LR",
-    ranksep: 120,
-    nodesep: 40,
+    ranksep: 140,
+    nodesep: 60,
   });
 
   nodes.forEach((node) => {
@@ -75,103 +77,245 @@ function layout(nodes: Node[], edges: Edge[]) {
 
   dagre.layout(graph);
 
-  return {
-    nodes: nodes.map((node) => {
-      const p = graph.node(node.id);
+  return nodes.map((node) => {
+    const position = graph.node(node.id);
 
-      return {
-        ...node,
-        position: {
-          x: p.x - nodeWidth / 2,
-          y: p.y - nodeHeight / 2,
-        },
-      };
-    }),
-    edges,
-  };
+    return {
+      ...node,
+      position: {
+        x: position.x - nodeWidth / 2,
+        y: position.y - nodeHeight / 2,
+      },
+    };
+  });
 }
 
-export default function KnowledgeGraph({ slug }: Props) {
+function convertNodes(nodes: GraphNode[]): Node[] {
+  return nodes.map((node) => ({
+    id: node.id,
+    data: {
+      slug: node.slug,
+      type: node.type,
+      label: node.label,
+      summary: node.summary,
+    },
+    position: {
+      x: 0,
+      y: 0,
+    },
+    style: {
+      width: nodeWidth,
+      minHeight: nodeHeight,
+      borderRadius: 14,
+      padding: 12,
+      border: node.center
+        ? "2px solid #2563eb"
+        : "1px solid #d1d5db",
+      background: node.center
+        ? "#dbeafe"
+        : "#ffffff",
+    },
+  }));
+}
+
+function convertEdges(edges: GraphEdge[]): Edge[] {
+  return edges.map((edge) => ({
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+    label: edge.label ?? "",
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+    },
+  }));
+}
+
+function mergeNodes(
+  current: Node[],
+  incoming: Node[]
+) {
+  const map = new Map<string, Node>();
+
+  [...current, ...incoming].forEach((node) => {
+    map.set(node.id, node);
+  });
+
+  return Array.from(map.values());
+}
+
+function mergeEdges(
+  current: Edge[],
+  incoming: Edge[]
+) {
+  const map = new Map<string, Edge>();
+
+  [...current, ...incoming].forEach((edge) => {
+    map.set(edge.id, edge);
+  });
+
+  return Array.from(map.values());
+}
+
+export default function KnowledgeGraph({
+  slug,
+}: Props) {
   const router = useRouter();
 
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  const fetchGraph = useCallback(async () => {
-  try {
-    setLoading(true);
 
-    const res = await fetch(`/api/graph/${slug}`);
+    const fetchGraph = useCallback(
+  async (targetSlug: string, isExpand = false) => {
+    try {
+      let graph: GraphResponse;
 
-    if (!res.ok) {
-      throw new Error("Failed to load graph");
-    }
+if (cache.has(targetSlug)) {
+  graph = cache.get(targetSlug)!;
+} else {
+  const res = await fetch(`/api/graph/${targetSlug}`);
 
-    const graph: GraphResponse = await res.json();
-
-    const flowNodes: Node[] = graph.nodes.map((node) => ({
-      id: node.id,
-      data: {
-        slug: node.slug,
-        type: node.type,
-        label: node.label,
-      },
-      position: { x: 0, y: 0 },
-      style: {
-        borderRadius: 12,
-        padding: 10,
-        border: node.center
-          ? "2px solid #2563eb"
-          : "1px solid #d1d5db",
-        background: node.center ? "#dbeafe" : "#ffffff",
-      },
-    }));
-
-    const flowEdges: Edge[] = graph.edges.map((edge) => ({
-      id: edge.id,
-      source: edge.source,
-      target: edge.target,
-      label: edge.label ?? "",
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-      },
-    }));
-
-    const layouted = layout(flowNodes, flowEdges);
-
-    setNodes(layouted.nodes);
-    setEdges(layouted.edges);
-  } catch (err) {
-    console.error(err);
-  } finally {
-    setLoading(false);
+  if (!res.ok) {
+    throw new Error("Failed to load graph");
   }
-}, [slug]);
+
+  graph = await res.json();
+        cache.set(targetSlug, graph);
+      }
+        let graphNodes = [...graph.nodes];
+
+        if (graph.center) {
+          const exists = graphNodes.some(
+            (node) => node.id === graph.center?.id
+          );
+
+          if (!exists) {
+            graphNodes.unshift({
+              id: graph.center.id,
+              slug: graph.center.slug,
+              label: graph.center.name,
+              type: graph.center.type,
+              center: true,
+            });
+          }
+        }
+
+        const newNodes = convertNodes(graphNodes);
+        const newEdges = convertEdges(graph.edges);
+
+        if (isExpand) {
+  setEdges((currentEdges) => {
+    const mergedEdges = mergeEdges(
+      currentEdges,
+      newEdges
+    );
+
+    setNodes((currentNodes) => {
+      const mergedNodes = mergeNodes(
+        currentNodes,
+        newNodes
+      );
+
+      return applyLayout(
+        mergedNodes,
+        mergedEdges
+      );
+    });
+
+    return mergedEdges;
+  });
+} else {
+  setNodes(
+    applyLayout(newNodes, newEdges)
+  );
+
+  setEdges(newEdges);
+}
+      } catch (error) {
+        console.error(
+          "Graph loading error:",
+          error
+        );
+      }
+    },
+[]);
 
   useEffect(() => {
-    fetchGraph();
-  }, [fetchGraph]);
+    setLoading(true);
 
-  const onNodeClick: NodeMouseHandler = (_, node) => {
-    router.push(`/entities/${node.data.type}/${node.data.slug}`);
+    fetchGraph(slug).finally(() =>
+      setLoading(false)
+    );
+  }, [slug, fetchGraph]);
+
+
+  const onNodeClick: NodeMouseHandler = async (
+    _event,
+    node
+  ) => {
+    const nodeSlug = node.data?.slug;
+    const nodeType = node.data?.type;
+
+    if (!nodeSlug || !nodeType) {
+      return;
+    }
+
+    if (expanded.has(nodeSlug)) {
+  return;
+}
+
+setExpanded((prev) => {
+  const next = new Set(prev);
+  next.add(nodeSlug);
+  return next;
+});
+
+await fetchGraph(nodeSlug, true);
   };
 
+
+  const openEntity = (
+    node: Node
+  ) => {
+    const nodeSlug = node.data?.slug;
+    const nodeType = node.data?.type;
+
+    if (!nodeSlug || !nodeType) {
+      return;
+    }
+
+    router.push(
+      `/entities/${nodeType}/${nodeSlug}`
+    );
+  };
+
+
   if (loading) {
-  return (
-    <div className="flex h-[700px] items-center justify-center rounded-xl border">
-      Loading graph...
-    </div>
-  );
-}
-  return (
+    return (
+      <div className="flex h-[700px] items-center justify-center rounded-xl border">
+        Loading knowledge graph...
+      </div>
+    );
+  }
+
+
+    return (
     <div className="h-[700px] w-full rounded-xl border">
+      
       <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        fitView
-        onNodeClick={onNodeClick}
-      >
+
+  nodes={nodes}
+  edges={edges}
+
+  fitView
+  onNodeClick={onNodeClick}
+  onNodeDoubleClick={(_event, node) =>
+    openEntity(node)
+  }
+>
+
         <MiniMap />
         <Controls />
         <Background />
