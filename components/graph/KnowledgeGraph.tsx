@@ -50,10 +50,18 @@ type Props = {
 
 const nodeWidth = 240;
 const nodeHeight = 90;
-
+const defaultEdgeOptions = {
+  markerEnd: {
+    type: MarkerType.ArrowClosed,
+  },
+};
 const cache = new Map<string, GraphResponse>();
 
-function applyLayout(nodes: Node[], edges: Edge[]) {
+function applyLayout(
+  nodes: Node[],
+  edges: Edge[],
+  preservePositions = false
+) {
   const graph = new dagre.graphlib.Graph();
 
   graph.setDefaultEdgeLabel(() => ({}));
@@ -65,11 +73,11 @@ function applyLayout(nodes: Node[], edges: Edge[]) {
   });
 
   nodes.forEach((node) => {
-    graph.setNode(node.id, {
-      width: nodeWidth,
-      height: nodeHeight,
-    });
+  graph.setNode(node.id, {
+    width: nodeWidth,
+    height: nodeHeight,
   });
+});
 
   edges.forEach((edge) => {
     graph.setEdge(edge.source, edge.target);
@@ -106,6 +114,8 @@ function convertNodes(nodes: GraphNode[]): Node[] {
     style: {
       width: nodeWidth,
       minHeight: nodeHeight,
+      transition: "all 300ms ease",
+  cursor: "pointer",
       borderRadius: 14,
       padding: 12,
       border: node.center
@@ -124,12 +134,8 @@ function convertEdges(edges: GraphEdge[]): Edge[] {
     source: edge.source,
     target: edge.target,
     label: edge.label ?? "",
-    markerEnd: {
-      type: MarkerType.ArrowClosed,
-    },
   }));
 }
-
 function mergeNodes(
   current: Node[],
   incoming: Node[]
@@ -165,7 +171,8 @@ export default function KnowledgeGraph({
   const [edges, setEdges] = useState<Edge[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
     const fetchGraph = useCallback(
   async (targetSlug: string, isExpand = false) => {
@@ -219,9 +226,10 @@ if (cache.has(targetSlug)) {
       );
 
       return applyLayout(
-        mergedNodes,
-        mergedEdges
-      );
+  mergedNodes,
+  mergedEdges,
+  true
+);
     });
 
     return mergedEdges;
@@ -302,13 +310,38 @@ await fetchGraph(nodeSlug, true);
 
 
     return (
-    <div className="h-[700px] w-full rounded-xl border">
+  <div className="h-[700px] w-full rounded-xl border flex flex-col">
+
+    <div className="border-b p-3">
+      <input
+        type="text"
+        placeholder="Search nodes..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="w-full rounded-lg border px-3 py-2 outline-none focus:border-blue-500"
+      />
+    </div>
+
+    <div className="flex-1">
       
       <ReactFlow
-
-  nodes={nodes}
+  nodes={nodes.map((node) => ({
+  ...node,
+  style: {
+    ...node.style,
+    border:
+  node.id === selectedNodeId
+    ? "3px solid #2563eb"
+        : node.style?.border,
+    boxShadow:
+  node.id === selectedNodeId
+    ? "0 0 0 4px rgba(37,99,235,.25)"
+        : undefined,
+  },
+}))}
   edges={edges}
-
+  defaultEdgeOptions={defaultEdgeOptions}
+  nodesDraggable
   fitView
   onNodeClick={onNodeClick}
   onNodeDoubleClick={(_event, node) =>
@@ -320,6 +353,8 @@ await fetchGraph(nodeSlug, true);
         <Controls />
         <Background />
       </ReactFlow>
+
     </div>
-  );
+  </div>
+);
 }
