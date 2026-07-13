@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import ReactFlow, {
@@ -98,13 +98,35 @@ function applyLayout(
   });
 }
 
+function getNodeIcon(type: string): string {
+  switch (type) {
+    case "person":
+      return "👤";
+
+    case "place":
+      return "📍";
+
+    case "event":
+      return "📅";
+
+    case "organization":
+      return "🏛️";
+
+    case "document":
+      return "📄";
+
+    default:
+      return "🔹";
+  }
+}
+
 function convertNodes(nodes: GraphNode[]): Node[] {
   return nodes.map((node) => ({
     id: node.id,
     data: {
       slug: node.slug,
       type: node.type,
-      label: node.label,
+      label: `${getNodeIcon(node.type)} ${node.label}`,
       summary: node.summary,
     },
     position: {
@@ -129,13 +151,53 @@ function convertNodes(nodes: GraphNode[]): Node[] {
 }
 
 function convertEdges(edges: GraphEdge[]): Edge[] {
-  return edges.map((edge) => ({
-    id: edge.id,
-    source: edge.source,
-    target: edge.target,
-    label: edge.label ?? "",
-  }));
+  return edges.map((edge) => {
+    const relation = (edge.label ?? "").toLowerCase();
+
+    let stroke = "#6b7280";
+
+    if (
+      relation.includes("ولد") ||
+      relation.includes("birth")
+    ) {
+      stroke = "#16a34a";
+    } else if (
+      relation.includes("توفي") ||
+      relation.includes("death")
+    ) {
+      stroke = "#dc2626";
+    } else if (
+      relation.includes("قاد") ||
+      relation.includes("شارك") ||
+      relation.includes("معركة")
+    ) {
+      stroke = "#2563eb";
+    } else if (
+      relation.includes("حكم") ||
+      relation.includes("ملك")
+    ) {
+      stroke = "#7c3aed";
+    }
+
+    return {
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      label: edge.label ?? "",
+
+      style: {
+        stroke,
+        strokeWidth: 2,
+      },
+
+      labelStyle: {
+        fill: stroke,
+        fontWeight: 600,
+      },
+    };
+  });
 }
+
 function mergeNodes(
   current: Node[],
   incoming: Node[]
@@ -173,6 +235,11 @@ export default function KnowledgeGraph({
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const searchResults = nodes.filter((node) =>
+  String(node.data?.label ?? "")
+    .toLowerCase()
+    .includes(search.trim().toLowerCase())
+);
 
     const fetchGraph = useCallback(
   async (targetSlug: string, isExpand = false) => {
@@ -258,6 +325,24 @@ if (cache.has(targetSlug)) {
     );
   }, [slug, fetchGraph]);
 
+  useEffect(() => {
+  const value = search.trim().toLowerCase();
+
+  if (!value) {
+  setSelectedNodeId(null);
+  return;
+}
+
+  const found = nodes.find((node) =>
+    String(node.data?.label ?? "")
+      .toLowerCase()
+      .includes(value)
+  );
+
+  if (found) {
+    setSelectedNodeId(found.id);
+  }
+}, [search, nodes]);
 
   const onNodeClick: NodeMouseHandler = async (
     _event,
@@ -308,7 +393,6 @@ await fetchGraph(nodeSlug, true);
     );
   }
 
-
     return (
   <div className="h-[700px] w-full rounded-xl border flex flex-col">
 
@@ -322,23 +406,77 @@ await fetchGraph(nodeSlug, true);
       />
     </div>
 
-    <div className="flex-1">
+<div className="flex items-center gap-2 border-b px-3 py-2">
+
+<span className="ml-auto text-sm text-gray-500">
+  {search.trim()
+    ? `${searchResults.length} result${
+        searchResults.length === 1 ? "" : "s"
+      }`
+    : `${nodes.length} nodes`}
+</span>
+
+  <button
+    onClick={() => setSearch("")}
+    className="rounded border px-3 py-1 text-sm hover:bg-gray-100"
+  >
+    Clear Search
+  </button>
+
+  <button
+    onClick={() => {
+      setSelectedNodeId(null);
+    }}
+    className="rounded border px-3 py-1 text-sm hover:bg-gray-100"
+  >
+    Clear Selection
+  </button>
+<button
+  onClick={() => {
+    setSearch("");
+    setSelectedNodeId(null);
+
+    fetchGraph(slug);
+  }}
+  className="rounded border px-3 py-1 text-sm hover:bg-gray-100"
+>
+  Reset Graph
+</button>
+<span className="text-sm text-gray-500">
+  {nodes.length} Nodes | {expanded.size} Expanded
+</span>
+
+</div>
+
+<div className="flex-1">
       
       <ReactFlow
-  nodes={nodes.map((node) => ({
-  ...node,
-  style: {
-    ...node.style,
-    border:
-  node.id === selectedNodeId
-    ? "3px solid #2563eb"
-        : node.style?.border,
-    boxShadow:
-  node.id === selectedNodeId
-    ? "0 0 0 4px rgba(37,99,235,.25)"
-        : undefined,
-  },
-}))}
+nodes={nodes.map((node) => {
+  const matchesSearch =
+    search.trim().length > 0 &&
+    String(node.data?.label ?? "")
+      .toLowerCase()
+      .includes(search.trim().toLowerCase());
+
+  return {
+    ...node,
+    style: {
+      ...node.style,
+      border:
+        node.id === selectedNodeId
+          ? "3px solid #2563eb"
+          : matchesSearch
+          ? "3px solid #22c55e"
+          : node.style?.border,
+      boxShadow:
+        node.id === selectedNodeId
+          ? "0 0 0 4px rgba(37,99,235,.25)"
+          : matchesSearch
+          ? "0 0 0 4px rgba(34,197,94,.20)"
+          : undefined,
+    },
+  };
+})}
   edges={edges}
   defaultEdgeOptions={defaultEdgeOptions}
   nodesDraggable
