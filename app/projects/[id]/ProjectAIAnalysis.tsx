@@ -1,92 +1,297 @@
 "use client";
 
-export default function ProjectAIAnalysis({ project }: any) {
-  const analysis = project?.summary
-    ? {
-        summary: project.summary,
-        entities: project.entities || {
-          people: [],
-          places: [],
-          events: [],
-        },
-      }
-    : null;
+import Link from "next/link";
 
-  if (!analysis) {
-    return (
-      <div className="p-4 border rounded-xl bg-gray-50">
-        🤖 No AI analysis available yet
-      </div>
-    );
-  }
+type EntityItem = {
+  entity: {
+    id: number;
+    name: string;
+    slug: string;
+    type: "person" | "place" | "event";
+  };
+};
+
+type ProjectAIAnalysisProps = {
+  project: any;
+};
+
+export default function ProjectAIAnalysis({
+  project,
+}: ProjectAIAnalysisProps) {
+  console.log("Summary:", project.summary);
+console.log("Documents:", project.documents);
+console.log("ProjectEntities:", project.projectEntities);
+  
+  const entities: EntityItem[] = project.projectEntities || [];
+
+  const people = entities.filter(
+    (item) => item.entity.type === "person"
+  );
+
+  const places = entities.filter(
+    (item) => item.entity.type === "place"
+  );
+
+  const events = entities.filter(
+    (item) => item.entity.type === "event"
+  );
+
+  const documents = project.documents || [];
 
   return (
-    <div className="space-y-6">
+    <section className="space-y-8">
 
-      {/* 🧠 SUMMARY */}
-      <div className="p-5 rounded-2xl border bg-white shadow-sm">
-        <h2 className="text-xl font-bold mb-3">🧠 AI Summary</h2>
-        <p className="text-gray-700 leading-relaxed">
-          {analysis.summary}
-        </p>
+      {/* ============================= */}
+      {/* AI HISTORICAL REPORT */}
+      {/* ============================= */}
+
+      <div className="rounded-2xl border border-cyan-500/30 bg-slate-900 p-6">
+
+        <div className="flex items-center justify-between">
+
+          <div>
+            <h2 className="text-2xl font-black text-cyan-300">
+              🤖 AI Historical Analysis
+            </h2>
+
+            <p className="mt-2 text-slate-400">
+              تحليل تاريخي للمشروع اعتمادًا على البيانات
+              المستخرجة من المستندات.
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-cyan-500/10 px-4 py-2 text-cyan-300">
+            Ready
+          </div>
+
+        </div>
+
       </div>
 
-      {/* 🧩 ENTITIES */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* ============================= */}
+      {/* STATISTICS */}
+      {/* ============================= */}
 
-        <EntityBox title="👤 People" items={analysis.entities.people} />
-        <EntityBox title="📍 Places" items={analysis.entities.places} />
-        <EntityBox title="📅 Events" items={analysis.entities.events} />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+
+        <StatCard
+          icon="📄"
+          title="Documents"
+          value={documents.length}
+        />
+
+        <StatCard
+          icon="👤"
+          title="People"
+          value={people.length}
+        />
+
+        <StatCard
+          icon="📍"
+          title="Places"
+          value={places.length}
+        />
+
+        <StatCard
+          icon="⚔️"
+          title="Events"
+          value={events.length}
+        />
 
       </div>
 
-      {/* ⏳ TIMELINE */}
-      <div className="p-5 rounded-2xl border bg-white shadow-sm">
-        <h2 className="text-xl font-bold mb-4">⏳ Timeline</h2>
+      {/* ============================= */}
+      {/* SUMMARY */}
+      {/* ============================= */}
 
-        {analysis.entities.events.length === 0 ? (
-          <p className="text-gray-400">No events detected</p>
+      <div className="rounded-2xl border border-white/10 bg-slate-900 p-6">
+
+        <h3 className="mb-4 text-xl font-bold text-cyan-300">
+          📄 Historical Summary
+        </h3>
+
+        {project.summary ? (
+          <p className="leading-8 text-slate-300">
+            {project.summary}
+          </p>
         ) : (
-          <div className="space-y-3">
-            {analysis.entities.events.map((event: string, i: number) => (
-              <div key={i} className="flex gap-3 items-start">
-                <span className="w-2 h-2 mt-2 rounded-full bg-black" />
-                <span className="text-gray-700">{event}</span>
+          <p className="text-slate-500">
+            لا يوجد ملخص تاريخي حتى الآن.
+          </p>
+        )}
+
+      </div>
+
+      {/* ============================= */}
+      {/* ENTITIES */}
+      {/* ============================= */}
+
+      <div className="grid gap-6 lg:grid-cols-3">
+
+        <EntityCard
+          title="👤 الشخصيات"
+          type="person"
+          items={people}
+        />
+
+        <EntityCard
+          title="📍 الأماكن"
+          type="place"
+          items={places}
+        />
+
+        <EntityCard
+          title="⚔️ الأحداث"
+          type="event"
+          items={events}
+        />
+
+      </div>
+            {/* ============================= */}
+      {/* TIMELINE */}
+      {/* ============================= */}
+
+      <div className="rounded-2xl border border-white/10 bg-slate-900 p-6">
+
+        <h3 className="mb-5 text-xl font-bold text-cyan-300">
+          ⏳ Timeline
+        </h3>
+
+        {events.length === 0 ? (
+          <p className="text-slate-500">
+            لا توجد أحداث تاريخية.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {events.map((item, index) => (
+              <div
+                key={item.entity.id}
+                className="flex items-start gap-4"
+              >
+                <div className="mt-2 h-3 w-3 rounded-full bg-cyan-400" />
+
+                <div>
+                  <Link
+                    href={`/entities/event/${item.entity.slug}`}
+                    className="font-semibold text-white hover:text-cyan-300"
+                  >
+                    {item.entity.name}
+                  </Link>
+
+                  <p className="text-sm text-slate-400">
+                    Event #{index + 1}
+                  </p>
+                </div>
               </div>
             ))}
           </div>
         )}
+
+      </div>
+
+      {/* ============================= */}
+      {/* DOCUMENTS */}
+      {/* ============================= */}
+
+      <div className="rounded-2xl border border-white/10 bg-slate-900 p-6">
+
+        <h3 className="mb-5 text-xl font-bold text-cyan-300">
+          📄 Source Documents
+        </h3>
+
+        {documents.length === 0 ? (
+          <p className="text-slate-500">
+            لا توجد مستندات.
+          </p>
+        ) : (
+          <div className="grid gap-3">
+            {documents.map((doc: any) => (
+              <div
+                key={doc.id}
+                className="rounded-xl border border-white/10 bg-slate-800 p-4"
+              >
+                <div className="font-semibold">
+                  {doc.fileName}
+                </div>
+
+                {doc.type && (
+                  <div className="mt-1 text-sm text-slate-400">
+                    {doc.type}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+      </div>
+
+    </section>
+  );
+}
+
+function StatCard({
+  icon,
+  title,
+  value,
+}: {
+  icon: string;
+  title: string;
+  value: number;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-slate-900 p-5">
+
+      <div className="text-3xl">
+        {icon}
+      </div>
+
+      <div className="mt-3 text-sm text-slate-400">
+        {title}
+      </div>
+
+      <div className="mt-2 text-3xl font-black text-cyan-300">
+        {value}
       </div>
 
     </div>
   );
 }
 
-/* ⭐ ENTITY BOX (CLICKABLE) */
-function EntityBox({ title, items }: any) {
-  const handleClick = (item: string) => {
-    alert(`Entity clicked: ${item}`);
-  };
-
+function EntityCard({
+  title,
+  type,
+  items,
+}: {
+  title: string;
+  type: "person" | "place" | "event";
+  items: EntityItem[];
+}) {
   return (
-    <div className="p-4 rounded-2xl border bg-gray-50">
-      <h3 className="font-semibold mb-3">{title}</h3>
+    <div className="rounded-2xl border border-white/10 bg-slate-900 p-6">
+
+      <h3 className="mb-5 text-lg font-bold">
+        {title}
+      </h3>
 
       {items.length === 0 ? (
-        <p className="text-sm text-gray-400">No data</p>
+        <p className="text-slate-500">
+          لا يوجد
+        </p>
       ) : (
-        <div className="flex flex-wrap gap-2">
-          {items.map((item: string, i: number) => (
-            <button
-              key={i}
-              onClick={() => handleClick(item)}
-              className="px-2 py-1 text-sm bg-white border rounded-full hover:bg-black hover:text-white transition"
+        <div className="space-y-3">
+          {items.map((item) => (
+            <Link
+              key={item.entity.id}
+              href={`/entities/${type}/${item.entity.slug}`}
+              className="block rounded-xl bg-slate-800 p-3 transition hover:bg-slate-700"
             >
-              {item}
-            </button>
+              {item.entity.name}
+            </Link>
           ))}
         </div>
       )}
+
     </div>
   );
 }

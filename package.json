@@ -23,6 +23,8 @@
     "next": "16.2.9",
     "openai": "^6.45.0",
     "pdf-parse": "^1.1.1",
+    "pdf2json": "^4.0.3",
+    "pdfjs-dist": "^6.1.200",
     "prisma": "^6.16.2",
     "radix-ui": "^1.6.1",
     "react": "19.2.4",
