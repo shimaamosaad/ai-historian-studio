@@ -22,9 +22,7 @@
     "lucide-react": "^1.22.0",
     "next": "16.2.9",
     "openai": "^6.45.0",
-    "pdf-parse": "^1.1.1",
-    "pdf2json": "^4.0.3",
-    "pdfjs-dist": "^6.1.200",
+    "pdf-to-img": "^6.2.0",
     "prisma": "^6.16.2",
     "radix-ui": "^1.6.1",
     "react": "19.2.4",
@@ -33,8 +31,11 @@
     "react-hook-form": "^7.80.0",
     "reactflow": "^11.11.4",
     "shadcn": "^4.12.0",
+    "sharp": "^0.35.3",
     "tailwind-merge": "^3.6.0",
+    "tesseract.js": "^7.0.0",
     "tw-animate-css": "^1.4.0",
+    "unpdf": "^1.6.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {

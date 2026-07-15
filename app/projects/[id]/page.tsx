@@ -1,6 +1,8 @@
 import Link from "next/link";
 import ProjectAIAnalysis from "./ProjectAIAnalysis";
 import ProjectDocuments from "@/components/documents/ProjectDocuments";
+import HistoricalReport from "@/components/projects/HistoricalReport";
+import HistoricalTimeline from "@/components/projects/HistoricalTimeline";
 
 async function getProject(id: string) {
   const res = await fetch(`http://localhost:3000/api/projects/${id}`, {
@@ -200,6 +202,8 @@ export default async function Page({
 
         <ProjectDocuments projectId={project.id} />
         <ProjectAIAnalysis project={project} />
+<HistoricalReport project={project} />
+<HistoricalTimeline project={project} />
 
       </div>
     </main>

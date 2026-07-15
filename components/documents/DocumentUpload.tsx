@@ -73,7 +73,7 @@ export default function DocumentUpload({
         ref={inputRef}
         type="file"
         accept=".pdf,.doc,.docx"
-        className="mb-4 block w-full rounded border p-2"
+        className="mb-4 block w-full rounded border border-gray-300 bg-white p-2 text-black"
         onChange={(e) => {
           const selected = e.target.files?.[0];
 
