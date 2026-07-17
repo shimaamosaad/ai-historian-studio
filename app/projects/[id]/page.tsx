@@ -1,8 +1,10 @@
+import DeleteDocumentButton from "@/components/documents/DeleteDocumentButton";
 import Link from "next/link";
 import ProjectAIAnalysis from "./ProjectAIAnalysis";
 import ProjectDocuments from "@/components/documents/ProjectDocuments";
 import HistoricalReport from "@/components/projects/HistoricalReport";
 import HistoricalTimeline from "@/components/projects/HistoricalTimeline";
+import DocumentQuestion from "@/components/documents/DocumentQuestion";
 
 async function getProject(id: string) {
   const res = await fetch(`http://localhost:3000/api/projects/${id}`, {
@@ -179,32 +181,174 @@ export default async function Page({
 
         </div>
 
-        {project.documents?.length > 0 && (
-          <div className="rounded-2xl border border-white/10 bg-slate-900 p-6">
+                <div className="rounded-2xl border border-white/10 bg-slate-900 p-6">
+          <h2 className="mb-5 text-xl font-bold">
+            📄 المستندات
+          </h2>
 
-            <h2 className="mb-5 text-xl font-bold">
-              📄 المستندات
-            </h2>
+          {project.documents?.length > 0 ? (
+            <div className="space-y-6">
+              {project.documents.map((doc: any) => {
+                const documentName =
+                  doc.name ||
+                  doc.fileName ||
+                  `مستند رقم ${doc.id}`;
 
-            <div className="space-y-2">
-              {project.documents.map((doc: any) => (
-                <div
-                  key={doc.id}
-                  className="rounded-lg bg-slate-800 p-3"
-                >
-                  {doc.fileName}
-                </div>
-              ))}
+                const documentType =
+                  doc.type?.toUpperCase() ||
+                  documentName.split(".").pop()?.toUpperCase() ||
+                  "FILE";
+
+                const uploadDate = doc.createdAt
+                  ? new Intl.DateTimeFormat("ar-EG", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    }).format(new Date(doc.createdAt))
+                  : "غير متوفر";
+
+                const processedPages =
+                  doc.processedPages ?? doc.totalPages ?? null;
+
+                const processingStatus =
+                  doc.processingStatus || "COMPLETED";
+
+                return (
+                  <article
+                    key={doc.id}
+                    className="overflow-hidden rounded-2xl border border-white/10 bg-slate-800/80 shadow-lg"
+                  >
+                    {/* رأس البطاقة */}
+                    <div className="border-b border-white/10 p-5">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex min-w-0 items-start gap-3">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-600/20 text-2xl">
+                            📄
+                          </div>
+
+                          <div className="min-w-0">
+                            <h3 className="break-words text-lg font-bold text-white">
+                              {documentName}
+                            </h3>
+
+                            <p className="mt-1 text-sm text-slate-400">
+                              مستند رقم {doc.id}
+                            </p>
+                          </div>
+                        </div>
+
+                        {processingStatus === "COMPLETED" ? (
+                          <span className="w-fit rounded-full bg-emerald-500/15 px-3 py-1 text-sm font-medium text-emerald-300">
+                            ✓ تمت المعالجة
+                          </span>
+                        ) : processingStatus === "PROCESSING" ? (
+                          <span className="w-fit rounded-full bg-amber-500/15 px-3 py-1 text-sm font-medium text-amber-300">
+                            ⏳ جاري التحليل
+                          </span>
+                        ) : (
+                          <span className="w-fit rounded-full bg-red-500/15 px-3 py-1 text-sm font-medium text-red-300">
+                            ⚠ فشل التحليل
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* معلومات المستند */}
+                    <div className="grid gap-3 border-b border-white/10 p-5 sm:grid-cols-3">
+                      <div className="rounded-xl bg-slate-900/60 p-4">
+                        <p className="text-xs text-slate-400">
+                          تاريخ الرفع
+                        </p>
+
+                        <p className="mt-2 font-semibold text-slate-100">
+                          {uploadDate}
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl bg-slate-900/60 p-4">
+                        <p className="text-xs text-slate-400">
+                          نوع الملف
+                        </p>
+
+                        <p className="mt-2 font-semibold text-slate-100">
+                          {documentType}
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl bg-slate-900/60 p-4">
+                        <p className="text-xs text-slate-400">
+                          عدد الصفحات
+                        </p>
+
+                        <p className="mt-2 font-semibold text-slate-100">
+                          {processedPages !== null
+                            ? processedPages
+                            : "غير متوفر"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* أدوات الملف */}
+                    <div className="flex flex-wrap gap-3 border-b border-white/10 p-5">
+                      {doc.url && (
+                        <>
+                          <a
+                            href={doc.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+                          >
+                            👁 فتح الملف
+                          </a>
+
+                          <a
+                            href={doc.url}
+                            download={documentName}
+                            className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-600"
+                          >
+                            ⬇ تنزيل الملف
+                          </a>
+                        </>
+                      )}
+
+                      <DeleteDocumentButton
+                        documentId={doc.id}
+                        documentName={documentName}
+                      />
+                    </div>
+
+                    {/* سؤال المستند */}
+                    <div className="p-5">
+                      <DocumentQuestion documentId={doc.id} />
+                    </div>
+                  </article>
+                );
+              })}
             </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-white/20 bg-slate-800/50 p-8 text-center">
+              <div className="text-4xl">
+                📂
+              </div>
 
-          </div>
-        )}
+              <h3 className="mt-3 font-semibold text-white">
+                لا توجد مستندات حتى الآن
+              </h3>
+
+              <p className="mt-2 text-sm text-slate-400">
+                ارفعي أول مستند تاريخي لبدء التحليل.
+              </p>
+            </div>
+          )}
+        </div>
 
         <ProjectDocuments projectId={project.id} />
-        <ProjectAIAnalysis project={project} />
-<HistoricalReport project={project} />
-<HistoricalTimeline project={project} />
 
+        <ProjectAIAnalysis project={project} />
+
+        <HistoricalReport project={project} />
+
+        <HistoricalTimeline project={project} />
       </div>
     </main>
   );

@@ -210,9 +210,9 @@ console.log("ProjectEntities:", project.projectEntities);
                 key={doc.id}
                 className="rounded-xl border border-white/10 bg-slate-800 p-4"
               >
-                <div className="font-semibold">
-                  {doc.fileName}
-                </div>
+                <div className="font-semibold text-white">
+  {doc.name || doc.fileName || `مستند رقم ${doc.id}`}
+</div>
 
                 {doc.type && (
                   <div className="mt-1 text-sm text-slate-400">
