@@ -23,6 +23,18 @@ function addPageMarkers(pages: string[]): string {
     .join("\n\n");
 }
 
+/*
+ * نحذف علامات الصفحات من نسخة النص المرسلة للتحليل فقط.
+ * النص المحفوظ داخل Document.content يظل محتفظًا بالعلامات
+ * لاستخدامها في البحث وإظهار رقم الصفحة.
+ */
+function removePageMarkers(content: string): string {
+  return content
+    .replace(/\[\[PAGE:\d+\]\]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -68,7 +80,6 @@ export async function POST(
     );
 
     /*
-     * مهم:
      * mergePages: false يجعل unpdf يعيد مصفوفة،
      * كل عنصر فيها يمثل نص صفحة واحدة.
      */
@@ -89,11 +100,18 @@ export async function POST(
      * لو الملف يحتوي أصلًا على نص قابل للاستخراج،
      * نحفظه مع أرقام الصفحات وننهي المعالجة.
      */
-    if (extractedContent.replace(/\[\[PAGE:\d+\]\]/g, "").trim()) {
-      const normalizedText =
-        normalizeArabicText(extractedContent);
+    if (
+      removePageMarkers(extractedContent).trim()
+    ) {
+      /*
+       * هذه النسخة فقط هي التي تُرسل للتحليل،
+       * ولذلك لن تظهر [[PAGE:1]] داخل الملخص.
+       */
+      const aiText = normalizeArabicText(
+        removePageMarkers(extractedContent)
+      );
 
-      const ai = await analyzeDocument(normalizedText);
+      const ai = await analyzeDocument(aiText);
 
       await saveEntities(document.projectId, ai);
 
@@ -106,20 +124,25 @@ export async function POST(
         },
       });
 
-      const completed = await prisma.document.update({
-        where: {
-          id: document.id,
-        },
-        data: {
-          content: extractedContent,
-          summary: ai.summary,
-          entities: JSON.stringify(ai),
-          processingStatus: "COMPLETED",
-          processedPages: totalPages,
-          totalPages,
-          processingError: null,
-        },
-      });
+      const completed =
+        await prisma.document.update({
+          where: {
+            id: document.id,
+          },
+          data: {
+            /*
+             * نحفظ النص بعلامات الصفحات
+             * لاستخدامها في البحث والاستشهاد.
+             */
+            content: extractedContent,
+            summary: ai.summary,
+            entities: JSON.stringify(ai),
+            processingStatus: "COMPLETED",
+            processedPages: totalPages,
+            totalPages,
+            processingError: null,
+          },
+        });
 
       return NextResponse.json(completed);
     }
@@ -161,7 +184,8 @@ export async function POST(
         pageNumber <= end;
         pageNumber++
       ) {
-        const image = await rendered.getPage(pageNumber);
+        const image =
+          await rendered.getPage(pageNumber);
 
         const prepared = await sharp(image)
           .rotate()
@@ -180,9 +204,11 @@ export async function POST(
           .png()
           .toBuffer();
 
-        const result = await worker.recognize(prepared);
+        const result =
+          await worker.recognize(prepared);
 
-        const pageText = result.data.text.trim();
+        const pageText =
+          result.data.text.trim();
 
         batchText +=
           `\n\n[[PAGE:${pageNumber}]]\n${pageText}`;
@@ -221,18 +247,21 @@ export async function POST(
           },
         });
 
-      return NextResponse.json(processingDocument);
+      return NextResponse.json(
+        processingDocument
+      );
     }
 
     /*
      * انتهت جميع صفحات OCR.
+     *
+     * نحذف علامات الصفحات من نسخة التحليل فقط.
      */
-    const normalizedContent =
-      normalizeArabicText(content);
-
-    const ai = await analyzeDocument(
-      normalizedContent
+    const aiText = normalizeArabicText(
+      removePageMarkers(content)
     );
+
+    const ai = await analyzeDocument(aiText);
 
     await saveEntities(document.projectId, ai);
 
@@ -251,6 +280,9 @@ export async function POST(
           id: document.id,
         },
         data: {
+          /*
+           * النص المحفوظ يظل محتفظًا بأرقام الصفحات.
+           */
           content,
           summary: ai.summary,
           entities: JSON.stringify(ai),

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { searchDocument } from "@/lib/ai/searchDocument";
+import { generateAnswer } from "@/lib/ai/generateAnswer";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -103,36 +104,29 @@ export async function POST(
       });
     }
 
-    const bestResult = results[0];
+    const generated = generateAnswer(
+  question,
+  results
+);
 
-    const answer = createShortQuote(
-      bestResult.text,
-      1000
-    );
-
-    const quote = createShortQuote(
-      bestResult.text,
-      700
-    );
-
-    return NextResponse.json({
-      document: {
-        id: document.id,
-        name: document.name,
-      },
-      question,
-      answer,
-      page: bestResult.page,
-      quote,
-      score: bestResult.score,
-      results: results.map((result, index) => ({
-        rank: index + 1,
-        score: result.score,
-        chunkIndex: result.chunkIndex,
-        page: result.page,
-        text: result.text,
-      })),
-    });
+return NextResponse.json({
+  document: {
+    id: document.id,
+    name: document.name,
+  },
+  question,
+  answer: generated.answer,
+  page: generated.page,
+  quote: generated.quote,
+  score: generated.confidence,
+  results: results.map((result, index) => ({
+    rank: index + 1,
+    score: result.score,
+    chunkIndex: result.chunkIndex,
+    page: result.page,
+    text: result.text,
+  })),
+});
   } catch (error) {
     console.error("Ask document error:", error);
 
