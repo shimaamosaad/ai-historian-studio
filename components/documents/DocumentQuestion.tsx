@@ -24,6 +24,7 @@ export default function DocumentQuestion({
   const [quote, setQuote] = useState("");
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [score, setScore] = useState<number>(0);
 
   async function askDocument() {
     const cleanQuestion = question.trim();
@@ -38,6 +39,7 @@ export default function DocumentQuestion({
     setQuote("");
     setError("");
     setCopied(false);
+    setScore(0);
 
     try {
       const response = await fetch(
@@ -79,6 +81,12 @@ export default function DocumentQuestion({
           ? data.quote
           : ""
       );
+      setScore(
+  typeof data.score === "number"
+    ? data.score
+    : 0
+);
+
     } catch (error) {
       setError(
         error instanceof Error
@@ -122,8 +130,7 @@ export default function DocumentQuestion({
       </h2>
 
       <p className="mb-4 text-sm leading-6 text-slate-400">
-        اكتب سؤالًا، وسيبحث أثر عن أفضل مقطع
-        مرتبط به داخل المستند.
+       اكتب سؤالك، وسيبحث أثر في المستند كاملًا، ويجمع الأدلة من كل الصفحات، ثم يقدم تحليلًا موثقًا بالمصادر.
       </p>
 
       <textarea
@@ -181,18 +188,36 @@ export default function DocumentQuestion({
             </p>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-[180px_1fr]">
-            <div className="rounded-xl border border-white/10 bg-slate-800 p-4">
-              <p className="text-sm text-slate-400">
-                📄 الصفحة
-              </p>
+          <div className="grid gap-4 md:grid-cols-[180px_180px_1fr]">
+  <div className="rounded-xl border border-white/10 bg-slate-800 p-4">
+    <p className="text-sm text-slate-400">
+      📄 الصفحة
+    </p>
 
-              <p className="mt-2 text-2xl font-bold text-white">
-                {page !== null
-                  ? page
-                  : "غير متوفرة"}
-              </p>
-            </div>
+    <p className="mt-2 text-2xl font-bold text-white">
+      {page !== null
+        ? page
+        : "غير متوفرة"}
+    </p>
+  </div>
+
+  <div className="rounded-xl border border-white/10 bg-slate-800 p-4">
+    <p className="text-sm text-slate-400">
+      🎯 درجة الثقة
+    </p>
+
+    <p
+      className={`mt-2 text-2xl font-bold ${
+        score >= 80
+          ? "text-green-400"
+          : score >= 50
+          ? "text-amber-400"
+          : "text-red-400"
+      }`}
+    >
+      {score}%
+    </p>
+  </div>
 
             {quote && (
               <div className="rounded-xl border border-white/10 bg-slate-800 p-4">

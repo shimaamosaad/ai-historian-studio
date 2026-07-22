@@ -10,11 +10,20 @@ export async function GET() {
   try {
     console.log("========== GET /api/projects ==========");
 
-    const projects = await prisma.project.findMany({
-      orderBy: {
-        createdAt: "desc",
+    
+  const projects = await prisma.project.findMany({
+  orderBy: {
+    createdAt: "desc",
+  },
+  include: {
+    documents: {
+      select: {
+        id: true,
+        processingStatus: true,
       },
-    });
+    },
+  },
+});
 
     console.log(`Projects found: ${projects.length}`);
 
