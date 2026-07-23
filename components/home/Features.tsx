@@ -1,108 +1,128 @@
-"use client";
-
-import { motion } from "framer-motion";
 import {
-  Brain,
-  ScrollText,
-  MapPinned,
-  Users,
-  Clock3,
+  BrainCircuit,
+  FileSearch,
+  GitBranch,
+  LibraryBig,
+  ScanText,
   Sparkles,
+  Timeline,
 } from "lucide-react";
 
 const features = [
   {
-    icon: Brain,
-    title: "تحليل بالذكاء الاصطناعي",
-    text: "حلّل المخطوطات والوثائق التاريخية خلال ثوانٍ مع استخراج المعلومات المهمة تلقائيًا.",
+    title: "تحليل الوثائق",
+    description:
+      "رفع ملفات PDF وWord وتحويل محتواها إلى نص قابل للبحث والتحليل داخل المشروع.",
+    icon: FileSearch,
+    metric: "PDF & Word",
   },
   {
-    icon: ScrollText,
-    title: "قراءة المخطوطات",
-    text: "تحويل الوثائق والمخطوطات إلى نصوص قابلة للبحث والتحليل بسهولة.",
+    title: "استخراج الكيانات",
+    description:
+      "التعرّف على الشخصيات والأماكن والأحداث والمصطلحات المهمة وربطها بالمصدر.",
+    icon: BrainCircuit,
+    metric: "AI Analysis",
   },
   {
-    icon: Users,
-    title: "استخراج الشخصيات",
-    text: "التعرف على الشخصيات التاريخية وربطها بالأحداث والعلاقات المختلفة.",
+    title: "الشبكات المعرفية",
+    description:
+      "إظهار العلاقات بين الشخصيات والأماكن والأحداث في شبكة تفاعلية قابلة للتوسّع.",
+    icon: GitBranch,
+    metric: "Knowledge Graph",
   },
   {
-    icon: MapPinned,
-    title: "الأماكن التاريخية",
-    text: "ربط المواقع التاريخية بخرائط تفاعلية لعرض الامتداد الجغرافي للأحداث.",
+    title: "التسلسل الزمني",
+    description:
+      "ترتيب الأحداث تاريخيًا وعرض تطورها في خط زمني واضح يساعد على فهم السياق.",
+    icon: Timeline,
+    metric: "Timeline",
   },
   {
-    icon: Clock3,
-    title: "الخط الزمني",
-    text: "إنشاء Timeline ذكي للأحداث التاريخية وترتيبها تلقائيًا.",
+    title: "البحث داخل المصادر",
+    description:
+      "طرح أسئلة مباشرة على المستندات والوصول إلى المقاطع الأقرب للسؤال بسرعة.",
+    icon: ScanText,
+    metric: "Smart Search",
   },
   {
-    icon: Sparkles,
-    title: "مساعد الباحث",
-    text: "اسأل الذكاء الاصطناعي عن أي وثيقة أو شخصية أو حدث واحصل على إجابة مدعومة بالسياق.",
+    title: "إدارة المشروعات",
+    description:
+      "تنظيم المستندات والتحليلات والتقارير والكيانات داخل مساحة بحثية واحدة.",
+    icon: LibraryBig,
+    metric: "Research Hub",
   },
 ];
 
 export default function Features() {
   return (
-    <section className="relative overflow-hidden bg-slate-950 py-28 px-6">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,#0891b233,transparent_65%)]" />
+    <section
+      id="platform"
+      dir="rtl"
+      className="relative overflow-hidden border-t border-blue-400/10 bg-[#020712] py-24 text-white"
+    >
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute left-[8%] top-0 h-72 w-72 rounded-full bg-blue-500/10 blur-[110px]" />
+        <div className="absolute bottom-[-80px] right-[10%] h-80 w-80 rounded-full bg-amber-400/[0.055] blur-[120px]" />
+        <div className="absolute inset-0 opacity-[0.055] bg-[linear-gradient(rgba(96,165,250,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(96,165,250,0.045)_1px,transparent_1px)] bg-[size:58px_58px]" />
+      </div>
 
-      <div className="relative mx-auto max-w-7xl">
-        <motion.div
-          initial={{ opacity: 0, y: 35 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.7 }}
-          className="mb-20 text-center"
-        >
-          <span className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-500/10 px-5 py-2 text-sm font-semibold text-cyan-300">
-            مميزات منصة أثر
-          </span>
+      <div className="relative z-10 mx-auto max-w-[1450px] px-5 lg:px-8">
+        <div className="mx-auto max-w-3xl text-center">
+          <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/25 bg-blue-500/[0.07] px-4 py-2 text-sm font-bold text-blue-300">
+            <Sparkles className="h-4 w-4" />
+            أدوات بحثية متكاملة
+          </div>
 
-          <h2 className="mt-6 text-4xl font-black text-white md:text-5xl">
-            أدوات ذكية للباحث التاريخي
+          <h2 className="mt-6 text-4xl font-black leading-tight md:text-5xl">
+            كل ما يحتاجه الباحث
+            <span className="mt-2 block bg-gradient-to-l from-[#ffe5a0] via-[#efb64a] to-[#c97a17] bg-clip-text text-transparent">
+              في منصة واحدة
+            </span>
           </h2>
 
-          <p className="mx-auto mt-6 max-w-3xl leading-8 text-slate-400">
-            صُممت منصة أثر لتجمع بين قوة الذكاء الاصطناعي وأدوات البحث
-            الأكاديمي، لتمنح الباحث تجربة حديثة في تحليل الوثائق
-            وربط الشخصيات والأماكن والأحداث.
+          <p className="mt-6 text-lg leading-9 text-slate-400">
+            من رفع المصدر حتى بناء التقرير، تساعدك أثر على تنظيم المعرفة
+            التاريخية وتحليلها والوصول إلى العلاقات المهمة بصورة أسرع وأوضح.
           </p>
-        </motion.div>
+        </div>
 
-        <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
-          {features.map((item, index) => {
-            const Icon = item.icon;
+        <div className="mt-14 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {features.map((feature, index) => {
+            const Icon = feature.icon;
 
             return (
-              <motion.div
-                key={item.title}
-                initial={{ opacity: 0, y: 35 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{
-                  duration: 0.45,
-                  delay: index * 0.08,
-                }}
-                className="group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl transition-all duration-500 hover:-translate-y-3 hover:border-cyan-400/40 hover:bg-white/10"
+              <article
+                key={feature.title}
+                className="group relative overflow-hidden rounded-[24px] border border-blue-400/15 bg-[#061225]/78 p-6 backdrop-blur-xl transition duration-300 hover:-translate-y-1.5 hover:border-blue-300/40 hover:shadow-[0_22px_60px_rgba(15,64,140,.17)]"
               >
-                <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-cyan-500/10 blur-3xl transition-all duration-500 group-hover:bg-cyan-400/20" />
+                <div className="absolute left-0 top-0 h-px w-full bg-gradient-to-r from-transparent via-blue-400/35 to-transparent opacity-0 transition group-hover:opacity-100" />
 
-                <div className="relative">
-                  <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 text-cyan-300 transition-transform duration-300 group-hover:scale-110">
-                    <Icon size={30} />
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-400/30 bg-blue-500/[0.08] text-blue-300 shadow-[0_12px_28px_rgba(37,99,235,.12)] transition group-hover:border-amber-300/35 group-hover:text-amber-300">
+                    <Icon className="h-7 w-7" />
                   </div>
 
-                  <h3 className="mb-4 text-2xl font-bold text-white">
-                    {item.title}
-                  </h3>
-
-                  <p className="leading-8 text-slate-400">
-                    {item.text}
-                  </p>
+                  <span className="text-4xl font-black text-white/[0.035]">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
                 </div>
-              </motion.div>
+
+                <h3 className="mt-6 text-2xl font-black text-white">
+                  {feature.title}
+                </h3>
+
+                <p className="mt-4 min-h-[84px] text-base leading-7 text-slate-400">
+                  {feature.description}
+                </p>
+
+                <div className="mt-6 flex items-center justify-between border-t border-white/[0.06] pt-4">
+                  <span className="text-xs font-bold tracking-wide text-blue-300">
+                    {feature.metric}
+                  </span>
+
+                  <span className="h-2 w-2 rounded-full bg-amber-300 shadow-[0_0_14px_rgba(252,211,77,.75)]" />
+                </div>
+              </article>
             );
           })}
         </div>

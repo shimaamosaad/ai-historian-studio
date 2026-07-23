@@ -27,27 +27,45 @@ function formatDate(value?: string) {
   }).format(new Date(value));
 }
 
-function getStatus(status?: string) {
-  if (status === "PROCESSING") {
+function getStatus(status?: string | null) {
+  if (status === "PROCESSING" || status === "PENDING") {
     return {
-      label: "جاري التحليل",
-      badge: "border-amber-400/25 bg-amber-400/10 text-amber-300",
-      dot: "bg-amber-400",
+      label:
+        status === "PENDING"
+          ? "في انتظار التحليل"
+          : "جاري التحليل",
+      badge:
+        "border-amber-400/25 bg-amber-400/10 text-amber-300",
+      dot:
+        status === "PROCESSING"
+          ? "animate-pulse bg-amber-400"
+          : "bg-amber-400",
     };
   }
 
-  if (status === "FAILED") {
+  if (status === "FAILED" || status === "ERROR") {
     return {
       label: "فشل التحليل",
-      badge: "border-red-400/25 bg-red-400/10 text-red-300",
+      badge:
+        "border-red-400/25 bg-red-400/10 text-red-300",
       dot: "bg-red-400",
     };
   }
 
+  if (status === "COMPLETED" || !status) {
+    return {
+      label: "مكتمل",
+      badge:
+        "border-emerald-400/25 bg-emerald-400/10 text-emerald-300",
+      dot: "bg-emerald-400",
+    };
+  }
+
   return {
-    label: "مكتمل",
-    badge: "border-emerald-400/25 bg-emerald-400/10 text-emerald-300",
-    dot: "bg-emerald-400",
+    label: "جاهز",
+    badge:
+      "border-cyan-400/25 bg-cyan-400/10 text-cyan-300",
+    dot: "bg-cyan-400",
   };
 }
 
@@ -296,7 +314,7 @@ export default async function Page({
                 <div className="p-10 text-center">
                   <div className="text-5xl">📂</div>
                   <h3 className="mt-4 text-xl font-black">لا توجد مستندات حتى الآن</h3>
-                  <p className="mt-2 text-slate-400">ارفعي أول مستند تاريخي لبدء التحليل.</p>
+                  <p className="mt-2 text-slate-400">ارفع أول مستند تاريخي لبدء التحليل.</p>
                 </div>
               )}
             </section>
