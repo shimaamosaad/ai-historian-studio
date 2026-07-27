@@ -7,6 +7,7 @@ import ProjectHero from "@/components/projects/ProjectHero";
 import ProjectStats from "@/components/projects/ProjectStats";
 import ProjectDocumentsList from "@/components/projects/ProjectDocumentsList";
 import ProjectEntities from "@/components/projects/ProjectEntities";
+import AIResearchReport from "@/components/reports/AIResearchReport";
 
 async function getProject(id: string) {
   const res = await fetch(`http://localhost:3000/api/projects/${id}`, {
@@ -185,6 +186,9 @@ export default async function Page({
           <ProjectAIAnalysis project={project} />
           <HistoricalReport project={project} />
           <HistoricalTimeline project={project} />
+          <section id="ai-research-report" className="mt-10">
+  <AIResearchReport project={project} />
+</section>
         </div>
 
         <footer className="mt-8 flex flex-col gap-3 border-t border-white/10 py-6 text-center text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:text-right">

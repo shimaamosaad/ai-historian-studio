@@ -52,13 +52,15 @@ function formatFileSize(bytes: number) {
   ).toFixed(2)} ميجابايت`;
 }
 
-function isPdfFile(file: File) {
+function isSupportedFile(file: File) {
+  const name = file.name.toLowerCase();
+
   return (
+    file.type === "application/pdf" ||
+    name.endsWith(".pdf") ||
     file.type ===
-      "application/pdf" ||
-    file.name
-      .toLowerCase()
-      .endsWith(".pdf")
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    name.endsWith(".docx")
   );
 }
 
@@ -110,12 +112,12 @@ export default function DocumentUpload({
       return;
     }
 
-    if (!isPdfFile(selectedFile)) {
+    if (!isSupportedFile(selectedFile)) {
       setFile(null);
       setProgress(0);
       setMessageType("error");
       setMessage(
-        "يمكن رفع ملفات PDF فقط."
+        "يمكن رفع ملفات PDF أو Word (.docx)."
       );
 
       return;
@@ -382,7 +384,7 @@ export default function DocumentUpload({
         <input
           ref={inputRef}
           type="file"
-          accept="application/pdf,.pdf"
+          accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           disabled={uploading}
           className="hidden"
           onChange={handleFileChange}
@@ -426,7 +428,7 @@ export default function DocumentUpload({
           </div>
 
           <h3 className="relative mt-5 text-xl font-black text-white">
-            اسحب ملف PDF هنا
+          اسحب ملف PDF أو Word هنا
           </h3>
 
           <p className="relative mt-2 text-sm leading-7 text-slate-400">
@@ -453,8 +455,8 @@ export default function DocumentUpload({
           <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-white/10 bg-black/20 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-red-400/20 bg-red-400/10 text-sm font-black text-red-300">
-                PDF
-              </div>
+  {file.name.toLowerCase().endsWith(".docx") ? "DOCX" : "PDF"}
+</div>
 
               <div className="min-w-0">
                 <p className="truncate font-bold text-white">
@@ -530,7 +532,7 @@ export default function DocumentUpload({
             ? "جارٍ رفع وتحليل المستند..."
             : file
               ? "رفع المستند وبدء التحليل"
-              : "اختر ملف PDF أولًا"}
+              : "اختر ملف PDF أو Word أولًا"}
         </button>
 
         <div className="mt-5 grid gap-3 md:grid-cols-2">

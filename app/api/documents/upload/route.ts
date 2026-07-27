@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
+
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
@@ -35,17 +37,35 @@ export async function POST(request: Request) {
       );
     }
 
+    const lowerFileName =
+      file.name.toLowerCase();
+
     const isPdf =
       file.type === "application/pdf" ||
-      file.name
-        .toLowerCase()
-        .endsWith(".pdf");
+      lowerFileName.endsWith(".pdf");
 
-    if (!isPdf) {
+    const isDocx =
+      file.type ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      lowerFileName.endsWith(".docx");
+
+    if (!isPdf && !isDocx) {
       return NextResponse.json(
         {
           error:
-            "يتم دعم ملفات PDF فقط حاليًا",
+            "يتم دعم ملفات PDF أو Word (.docx) فقط",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        {
+          error:
+            "حجم الملف أكبر من الحد المسموح وهو 50 ميجابايت",
         },
         {
           status: 400,
@@ -90,7 +110,8 @@ export async function POST(request: Request) {
         "-"
       );
 
-    const safeName = `${Date.now()}-${safeOriginalName}`;
+    const safeName =
+      `${Date.now()}-${safeOriginalName}`;
 
     const filePath = path.join(
       uploadDir,
@@ -112,7 +133,7 @@ export async function POST(request: Request) {
           name: file.name,
           url: `/uploads/${safeName}`,
           content: "",
-          type: "pdf",
+          type: isPdf ? "pdf" : "docx",
           projectId,
           processingStatus: "QUEUED",
           processedPages: 0,

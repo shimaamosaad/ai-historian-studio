@@ -18,6 +18,37 @@ function slugify(text: string): string {
     .replace(/\s+/g, "-")
     .replace(/[^\w\u0600-\u06FF-]/g, "");
 }
+function isValidEntityName(name: string): boolean {
+  const text = normalizeName(name);
+
+  if (!text) {
+    return false;
+  }
+
+  // أقل من 3 أحرف
+  if (text.length < 3) {
+    return false;
+  }
+
+  // يجب أن يحتوي على حروف عربية
+  if (!/[\u0600-\u06FF]/.test(text)) {
+    return false;
+  }
+
+  // يمنع الرموز الغريبة
+  if (/[^0-9\u0600-\u06FF\s()\-]/.test(text)) {
+    return false;
+  }
+
+  // كلمة واحدة قصيرة
+  const words = text.split(/\s+/);
+
+  if (words.length === 1 && text.length < 4) {
+    return false;
+  }
+
+  return true;
+}
 
 async function saveEntity(
   projectId: number,

@@ -1,45 +1,176 @@
-export type AIRelation = { source: string; relation: string; target: string };
-export type AIAnalysisResult = { summary: string; people: string[]; places: string[]; events: string[]; relations: AIRelation[] };
+export type AIRelation = {
+  source: string;
+  relation: string;
+  target: string;
+};
 
-function normalizeArabic(text: string) {
+export type AIAnalysisResult = {
+  summary: string;
+  people: string[];
+  places: string[];
+  events: string[];
+  relations: AIRelation[];
+};
+
+function normalizeText(text: string): string {
   return text
-    .replace(/[أإآ]/g, "ا")
-    .replace(/ى/g, "ي")
-    .replace(/ة/g, "ه")
-    .replace(/[\u064B-\u065F\u0670]/g, "")
-    .replace(/ـ/g, "")
-    .replace(/\s+/g, " ")
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
 
-export async function analyzeDocument(text: string): Promise<AIAnalysisResult> {
-  if (!text.trim()) throw new Error("No text provided for analysis");
-  const normalized = normalizeArabic(text);
-  const people: string[] = [];
-  const places: string[] = [];
-  const events: string[] = [];
+function createSummary(text: string, maxLength = 700): string {
+  const cleanText = normalizeText(text).replace(/\s+/g, " ");
+
+  if (!cleanText) {
+    return "";
+  }
+
+  if (cleanText.length <= maxLength) {
+    return cleanText;
+  }
+
+  const shortened = cleanText.slice(0, maxLength);
+
+  const lastSentenceEnd = Math.max(
+    shortened.lastIndexOf("."),
+    shortened.lastIndexOf("؟"),
+    shortened.lastIndexOf("!"),
+    shortened.lastIndexOf("؛")
+  );
+
+  if (lastSentenceEnd >= 200) {
+    return `${shortened.slice(0, lastSentenceEnd + 1).trim()}...`;
+  }
+
+  return `${shortened.trim()}...`;
+}
+
+function includesArabicPhrase(text: string, phrase: string): boolean {
+  const normalizedText = text
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ة/g, "ه")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const normalizedPhrase = phrase
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ة/g, "ه")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return normalizedText.includes(normalizedPhrase);
+}
+
+function extractExactMentions(
+  text: string,
+  candidates: string[]
+): string[] {
+  return candidates.filter((candidate) =>
+    includesArabicPhrase(text, candidate)
+  );
+}
+
+function uniqueValues(values: string[]): string[] {
+  return Array.from(new Set(values));
+}
+
+export async function analyzeDocument(
+  text: string
+): Promise<AIAnalysisResult> {
+  if (!text || text.trim().length === 0) {
+    throw new Error("No text provided for analysis");
+  }
+
+  console.log("========== SAFE MOCK AI ==========");
+
+  const normalized = normalizeText(text);
+
+  /*
+   * هذه القوائم مؤقتة فقط.
+   * لن يتم حفظ أي عنصر إلا إذا كان اسمه موجودًا بالفعل داخل النص.
+   */
+
+  const peopleCandidates = [
+    "صلاح الدين الأيوبي",
+    "محمد علي باشا",
+    "نابليون بونابرت",
+    "جوهر الصقلي",
+    "المعز لدين الله الفاطمي",
+    "الحاكم بأمر الله",
+    "المستنصر بالله الفاطمي",
+    "عمرو بن العاص",
+    "أحمد بن طولون",
+    "الظاهر بيبرس",
+    "الناصر محمد بن قلاوون",
+  ];
+
+  const placeCandidates = [
+    "مصر",
+    "القاهرة",
+    "الإسكندرية",
+    "الفسطاط",
+    "الكوفة",
+    "دمشق",
+    "بغداد",
+    "الحجاز",
+    "مكة",
+    "المدينة المنورة",
+    "الشام",
+    "العراق",
+    "اليمن",
+    "المغرب",
+    "الأندلس",
+    "القدس",
+  ];
+
+  const eventCandidates = [
+    "الفتح الإسلامي",
+    "الفتح العربي لمصر",
+    "الدولة الفاطمية",
+    "العصر الفاطمي",
+    "الدولة الأيوبية",
+    "العصر الأيوبي",
+    "الدولة المملوكية",
+    "العصر المملوكي",
+    "الحملة الفرنسية",
+    "ثورة القاهرة",
+    "معركة حطين",
+    "الحروب الصليبية",
+  ];
+
+  const people = uniqueValues(
+    extractExactMentions(normalized, peopleCandidates)
+  );
+
+  const places = uniqueValues(
+    extractExactMentions(normalized, placeCandidates)
+  );
+
+  const events = uniqueValues(
+    extractExactMentions(normalized, eventCandidates)
+  );
+
+  /*
+   * لا ننشئ علاقات تجريبية.
+   * العلاقات ستظل فارغة حتى تشغيل OpenAI الحقيقي،
+   * حتى لا تضاف علاقات غير موجودة في المستند.
+   */
   const relations: AIRelation[] = [];
 
-  if (normalized.includes("صلاح الدين")) people.push("صلاح الدين الأيوبي");
-  if (normalized.includes("كليوباترا")) people.push("كليوباترا");
-  if (normalized.includes("رمسيس")) people.push("رمسيس الثاني");
-  if (normalized.includes("محمد علي")) people.push("محمد علي باشا");
-  if (normalized.includes("مصر")) places.push("مصر");
-  if (normalized.includes("الاسكندريه")) places.push("الإسكندرية");
-  if (normalized.includes("القاهره")) places.push("القاهرة");
-  if (normalized.includes("القدس")) places.push("القدس");
-  if (normalized.includes("حطين")) places.push("حطين");
-  if (normalized.includes("الصليبي")) events.push("الحروب الصليبية");
-  if (normalized.includes("معركه")) events.push("معركة تاريخية");
-  if (normalized.includes("فتح")) events.push("فتح تاريخي");
-  if (normalized.includes("ثوره")) events.push("ثورة تاريخية");
-
-  if (people.includes("صلاح الدين الأيوبي") && events.includes("معركة تاريخية")) relations.push({ source: "صلاح الدين الأيوبي", relation: "قاد", target: "معركة تاريخية" });
-  if (events.includes("معركة تاريخية") && places.includes("حطين")) relations.push({ source: "معركة تاريخية", relation: "وقعت في", target: "حطين" });
-  if (people.includes("صلاح الدين الأيوبي") && places.includes("القدس")) relations.push({ source: "صلاح الدين الأيوبي", relation: "حرر", target: "القدس" });
-
-  return {
-    summary: text.replace(/\s+/g, " ").trim().slice(0, 250) + (text.length > 250 ? "..." : ""),
-    people: [...new Set(people)], places: [...new Set(places)], events: [...new Set(events)], relations,
+  const result: AIAnalysisResult = {
+    summary: createSummary(normalized),
+    people,
+    places,
+    events,
+    relations,
   };
+
+  console.log(result);
+  console.log("==================================");
+
+  return result;
 }

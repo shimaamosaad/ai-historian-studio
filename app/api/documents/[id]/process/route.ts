@@ -14,6 +14,7 @@ import {
   extractText,
   getDocumentProxy,
 } from "unpdf";
+import * as mammoth from "mammoth";
 
 import { prisma } from "@/lib/prisma";
 import { analyzeByDomain } from "@/lib/ai/analyzeByDomain";
@@ -25,6 +26,8 @@ export const maxDuration = 300;
 
 const PAGES_PER_REQUEST = 5;
 const MIN_DIRECT_TEXT_QUALITY = 60;
+const MIN_FINAL_TEXT_QUALITY = 45;
+const MAX_PRIVATE_USE_RATIO = 0.02;
 
 /*
  * حساب نسبة الحروف العربية داخل النص.
@@ -107,6 +110,120 @@ function getCorruptedWordRatio(
  * - نسبة الحروف العربية.
  * - طول النص.
  * - نسبة الكلمات السليمة.
+ 
+/*
+ * حساب نسبة الرموز الموجودة في نطاق Private Use Area.
+ *
+ * بعض ملفات PDF العربية القديمة تستخدم خطوطًا ترسم الحروف
+ * برموز خاصة بدل حروف Unicode العربية الحقيقية.
+ *
+ * مثال:
+ *     
+ */
+function getPrivateUseRatio(
+  text: string
+): number {
+  const characters = [...text].filter(
+    (character) => !/\s/u.test(character)
+  );
+
+  if (characters.length === 0) {
+    return 0;
+  }
+
+  const privateUseCharacters =
+    characters.filter((character) => {
+      const codePoint =
+        character.codePointAt(0) ?? 0;
+
+      return (
+        (codePoint >= 0xe000 &&
+          codePoint <= 0xf8ff) ||
+        (codePoint >= 0xf0000 &&
+          codePoint <= 0xffffd) ||
+        (codePoint >= 0x100000 &&
+          codePoint <= 0x10fffd)
+      );
+    });
+
+  return (
+    privateUseCharacters.length /
+    characters.length
+  );
+}
+
+/*
+ * حساب نسبة رموز الاستبدال والتحكم غير الطبيعية.
+ */
+function getInvalidCharacterRatio(
+  text: string
+): number {
+  const characters = [...text].filter(
+    (character) => !/\s/u.test(character)
+  );
+
+  if (characters.length === 0) {
+    return 0;
+  }
+
+  const invalidCharacters =
+    characters.filter((character) => {
+      const codePoint =
+        character.codePointAt(0) ?? 0;
+
+      const isReplacementCharacter =
+        character === "\uFFFD";
+
+      const isNullCharacter =
+        character === "\u0000";
+
+      const isUnexpectedControlCharacter =
+        codePoint < 32 &&
+        character !== "\n" &&
+        character !== "\r" &&
+        character !== "\t";
+
+      return (
+        isReplacementCharacter ||
+        isNullCharacter ||
+        isUnexpectedControlCharacter
+      );
+    });
+
+  return (
+    invalidCharacters.length /
+    characters.length
+  );
+}
+
+/*
+ * تحديد ما إذا كان النص يحتوي على ترميز خطوط مشوه.
+ */
+function hasBrokenFontEncoding(
+  text: string
+): boolean {
+  const privateUseRatio =
+    getPrivateUseRatio(text);
+
+  const invalidCharacterRatio =
+    getInvalidCharacterRatio(text);
+
+  return (
+    privateUseRatio >
+      MAX_PRIVATE_USE_RATIO ||
+    invalidCharacterRatio > 0.01
+  );
+}
+
+/*
+ * تقييم جودة النص بدرجة من 0 إلى 100.
+ *
+ * يعتمد التقييم على:
+ * - وجود حروف عربية صحيحة.
+ * - طول النص.
+ * - نسبة الكلمات غير المشوهة.
+ * - رموز الخطوط القديمة Private Use Area.
+ * - رموز الاستبدال والتحكم غير الطبيعية.
  */
 function evaluateArabicText(
   text: string
@@ -123,6 +240,12 @@ function evaluateArabicText(
   const corruptedRatio =
     getCorruptedWordRatio(cleanedText);
 
+  const privateUseRatio =
+    getPrivateUseRatio(cleanedText);
+
+  const invalidCharacterRatio =
+    getInvalidCharacterRatio(cleanedText);
+
   const lengthScore = Math.min(
     cleanedText.length / 5000,
     1
@@ -135,12 +258,34 @@ function evaluateArabicText(
   score +=
     (1 - corruptedRatio) * 15;
 
+  /*
+   * عقوبة قوية للنصوص التي تستخدم رموز خطوط خاصة
+   * بدل حروف Unicode العربية.
+   */
+  score -= privateUseRatio * 400;
+  score -=
+    invalidCharacterRatio * 500;
+
+  /*
+   * إذا زادت رموز Private Use عن 10%
+   * فالنص غير صالح للتحليل نهائيًا.
+   */
+  if (privateUseRatio > 0.1) {
+    score = 0;
+  }
+
+  if (invalidCharacterRatio > 0.05) {
+    score = 0;
+  }
+
   return Math.max(
     0,
-    Math.min(100, Math.round(score))
+    Math.min(
+      100,
+      Math.round(score)
+    )
   );
 }
-
 /*
  * إضافة رقم الصفحة قبل نص كل صفحة.
  *
@@ -195,11 +340,83 @@ async function completeDocumentProcessing({
     removePageMarkers(content);
 
   const aiText =
-    normalizeArabicText(
-      textWithoutMarkers
-    );
+  normalizeArabicText(
+    textWithoutMarkers
+  );
 
-  const ai =
+const finalTextQuality =
+  evaluateArabicText(aiText);
+
+const privateUseRatio =
+  getPrivateUseRatio(aiText);
+
+const invalidCharacterRatio =
+  getInvalidCharacterRatio(aiText);
+
+const brokenFontEncoding =
+  hasBrokenFontEncoding(aiText);
+
+console.log(
+  "========== FINAL TEXT SAFETY CHECK =========="
+);
+
+console.log(
+  "Final text length:",
+  aiText.length
+);
+
+console.log(
+  "Final text quality:",
+  finalTextQuality
+);
+
+console.log(
+  "Private-use ratio:",
+  Math.round(privateUseRatio * 10000) /
+    100,
+  "%"
+);
+
+console.log(
+  "Invalid-character ratio:",
+  Math.round(
+    invalidCharacterRatio * 10000
+  ) / 100,
+  "%"
+);
+
+console.log(
+  "Broken font encoding:",
+  brokenFontEncoding
+);
+
+console.log(
+  "============================================="
+);
+
+if (!aiText || aiText.length < 20) {
+  throw new Error(
+    "لم يتم استخراج نص كافٍ من المستند. جرّبي ملفًا أوضح أو نسخة أخرى من المستند."
+  );
+}
+
+if (brokenFontEncoding) {
+  throw new Error(
+    "تعذّر تحليل المستند لأن النص المستخرج يستخدم ترميز خط عربي قديمًا أو مشوّهًا. حاول النظام استخدام OCR، لكن النص النهائي ما زال غير صالح للتحليل."
+  );
+}
+
+if (
+  getArabicRatio(aiText) > 0.25 &&
+  finalTextQuality <
+    MIN_FINAL_TEXT_QUALITY
+) {
+  throw new Error(
+    "جودة النص العربي المستخرج منخفضة جدًا، ولذلك تم إيقاف التحليل لحماية النتائج من الأخطاء. جرّبي نسخة PDF أوضح أو ملف Word."
+  );
+}
+
+const ai =
   await analyzeByDomain(
     aiText,
     "history"
@@ -301,6 +518,52 @@ export async function POST(
 
     const buffer =
       await fs.readFile(filePath);
+
+    const documentType =
+      document.type?.toLowerCase() ?? "";
+
+    const documentName =
+      document.name.toLowerCase();
+
+    const isDocx =
+      documentType === "docx" ||
+      documentName.endsWith(".docx");
+
+    /*
+     * ملفات Word لا تحتاج إلى OCR.
+     * نستخرج النص مباشرة باستخدام mammoth،
+     * ثم نرسله إلى نفس مسار التحليل والحفظ.
+     */
+    if (isDocx) {
+      const result =
+        await mammoth.extractRawText({
+          buffer,
+        });
+
+      const wordText =
+        result.value.trim();
+
+      if (!wordText) {
+        throw new Error(
+          "لم يتم العثور على نص داخل ملف Word"
+        );
+      }
+
+      const wordContent =
+        `[[PAGE:1]]\n${wordText}`;
+
+      const completed =
+        await completeDocumentProcessing({
+          documentId: document.id,
+          projectId: document.projectId,
+          content: wordContent,
+          totalPages: 1,
+        });
+
+      return NextResponse.json(
+        completed
+      );
+    }
 
     const pdfProxy =
       await getDocumentProxy(
