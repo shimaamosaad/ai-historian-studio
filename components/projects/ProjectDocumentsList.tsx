@@ -26,7 +26,7 @@ type DocumentItem = {
   fileName?: string | null;
   type?: string | null;
   url?: string | null;
-  createdAt?: string | null;
+  createdAt?: string | Date | null;
   processingStatus?: string | null;
   processedPages?: number | null;
   totalPages?: number | null;

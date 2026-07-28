@@ -11,13 +11,36 @@ const loginSchema = z.object({
 });
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  session: {
+    secret: process.env.AUTH_SECRET,
+    session: {
     strategy: "jwt",
   },
 
   pages: {
     signIn: "/login",
   },
+  
+  callbacks: {
+  async jwt({ token, user }) {
+    if (user) {
+      token.id = user.id;
+    }
+
+    return token;
+  },
+
+  async session({ session, token }) {
+    if (session.user && token.id) {
+      (
+        session.user as typeof session.user & {
+          id: string;
+        }
+      ).id = token.id as string;
+    }
+
+    return session;
+  },
+},
 
   providers: [
     Credentials({

@@ -1,3 +1,4 @@
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -12,8 +13,16 @@ export async function GET(
   { params }: Params
 ) {
   try {
-    const { id } = await params;
+    const session = await auth();
 
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const { id } = await params;
     const projectId = Number(id);
 
     if (Number.isNaN(projectId)) {
@@ -23,9 +32,10 @@ export async function GET(
       );
     }
 
-    const project = await prisma.project.findUnique({
+    const project = await prisma.project.findFirst({
       where: {
         id: projectId,
+        userId: session.user.id,
       },
       include: {
         documents: true,
@@ -46,7 +56,7 @@ export async function GET(
 
     return NextResponse.json(project);
   } catch (error) {
-    console.error(error);
+    console.error("GET project error:", error);
 
     return NextResponse.json(
       { error: "Failed to load project" },
@@ -60,8 +70,16 @@ export async function PUT(
   { params }: Params
 ) {
   try {
-    const { id } = await params;
+    const session = await auth();
 
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const { id } = await params;
     const projectId = Number(id);
 
     if (Number.isNaN(projectId)) {
@@ -71,15 +89,41 @@ export async function PUT(
       );
     }
 
+    const existingProject = await prisma.project.findFirst({
+      where: {
+        id: projectId,
+        userId: session.user.id,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!existingProject) {
+      return NextResponse.json(
+        { error: "Project not found" },
+        { status: 404 }
+      );
+    }
+
     const body = await request.json();
 
-    const data: any = {};
+    const title =
+      typeof body.title === "string"
+        ? body.title.trim()
+        : "";
 
-    if (body.title !== undefined) data.title = body.title;
-    if (body.description !== undefined) data.description = body.description;
-    if (body.period !== undefined) data.period = body.period;
+    const description =
+      typeof body.description === "string"
+        ? body.description.trim()
+        : "";
 
-    if (!data.title || !data.description || !data.period) {
+    const period =
+      typeof body.period === "string"
+        ? body.period.trim()
+        : "";
+
+    if (!title || !description || !period) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -88,14 +132,18 @@ export async function PUT(
 
     const project = await prisma.project.update({
       where: {
-        id: projectId,
+        id: existingProject.id,
       },
-      data,
+      data: {
+        title,
+        description,
+        period,
+      },
     });
 
     return NextResponse.json(project);
   } catch (error) {
-    console.error(error);
+    console.error("PUT project error:", error);
 
     return NextResponse.json(
       { error: "Failed to update project" },
@@ -109,8 +157,16 @@ export async function DELETE(
   { params }: Params
 ) {
   try {
-    const { id } = await params;
+    const session = await auth();
 
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const { id } = await params;
     const projectId = Number(id);
 
     if (Number.isNaN(projectId)) {
@@ -120,32 +176,48 @@ export async function DELETE(
       );
     }
 
-    // حذف العلاقات مع الكيانات
-    await prisma.projectEntity.deleteMany({
-      where: {
-        projectId,
-      },
-    });
-
-    // حذف المستندات التابعة للمشروع
-    await prisma.document.deleteMany({
-      where: {
-        projectId,
-      },
-    });
-
-    // حذف المشروع
-    await prisma.project.delete({
+    const existingProject = await prisma.project.findFirst({
       where: {
         id: projectId,
+        userId: session.user.id,
+      },
+      select: {
+        id: true,
       },
     });
+
+    if (!existingProject) {
+      return NextResponse.json(
+        { error: "Project not found" },
+        { status: 404 }
+      );
+    }
+
+    await prisma.$transaction([
+      prisma.projectEntity.deleteMany({
+        where: {
+          projectId: existingProject.id,
+        },
+      }),
+
+      prisma.document.deleteMany({
+        where: {
+          projectId: existingProject.id,
+        },
+      }),
+
+      prisma.project.delete({
+        where: {
+          id: existingProject.id,
+        },
+      }),
+    ]);
 
     return NextResponse.json({
       success: true,
     });
   } catch (error) {
-    console.error(error);
+    console.error("DELETE project error:", error);
 
     return NextResponse.json(
       {
@@ -154,9 +226,7 @@ export async function DELETE(
             ? error.message
             : "Failed to delete project",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }

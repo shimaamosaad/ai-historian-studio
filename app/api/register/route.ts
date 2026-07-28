@@ -10,48 +10,61 @@ const registerSchema = z.object({
   name: z
     .string()
     .trim()
-    .min(2, "الاسم يجب أن يكون حرفين على الأقل")
+    .min(2, "الاسم يجب أن يحتوي على حرفين على الأقل")
     .max(100, "الاسم طويل جدًا"),
 
   email: z
     .string()
     .trim()
     .email("البريد الإلكتروني غير صحيح")
-    .transform((email) => email.toLowerCase()),
+    .transform((value) => value.toLowerCase()),
 
   password: z
     .string()
-    .min(8, "كلمة المرور يجب ألا تقل عن 8 أحرف")
+    .min(8, "كلمة المرور يجب أن تحتوي على 8 أحرف على الأقل")
     .max(100, "كلمة المرور طويلة جدًا"),
 });
 
 export async function POST(request: Request) {
   try {
-    const body: unknown = await request.json();
-    const parsedData = registerSchema.safeParse(body);
+    const body = await request.json();
 
-    if (!parsedData.success) {
+    const validationResult = registerSchema.safeParse(body);
+
+    if (!validationResult.success) {
+      const firstError =
+        validationResult.error.issues[0]?.message ??
+        "البيانات المدخلة غير صحيحة";
+
       return NextResponse.json(
         {
-          error:
-            parsedData.error.issues[0]?.message ??
-            "بيانات التسجيل غير صحيحة",
+          error: firstError,
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
-    const { name, email, password } = parsedData.data;
+    const { name, email, password } = validationResult.data;
 
     const existingUser = await prisma.user.findUnique({
-      where: { email },
-      select: { id: true },
+      where: {
+        email,
+      },
+      select: {
+        id: true,
+      },
     });
 
     if (existingUser) {
       return NextResponse.json(
-        { error: "يوجد حساب مسجل بهذا البريد الإلكتروني بالفعل" },
-        { status: 409 }
+        {
+          error: "يوجد حساب مسجل بهذا البريد الإلكتروني بالفعل",
+        },
+        {
+          status: 409,
+        }
       );
     }
 
@@ -76,14 +89,20 @@ export async function POST(request: Request) {
         message: "تم إنشاء الحساب بنجاح",
         user,
       },
-      { status: 201 }
+      {
+        status: 201,
+      }
     );
   } catch (error) {
-    console.error("REGISTER_ERROR:", error);
+    console.error("REGISTER_API_ERROR:", error);
 
     return NextResponse.json(
-      { error: "حدث خطأ أثناء إنشاء الحساب" },
-      { status: 500 }
+      {
+        error: "حدث خطأ أثناء إنشاء الحساب",
+      },
+      {
+        status: 500,
+      }
     );
   }
 }

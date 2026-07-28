@@ -2,6 +2,8 @@ import "./globals.css";
 import "reactflow/dist/style.css";
 
 import type { Metadata } from "next";
+import Providers from "@/components/Providers";
+import Navbar from "@/components/Navbar";
 
 export const metadata: Metadata = {
   title: "أثر",
@@ -15,11 +17,16 @@ export default function RootLayout({
 }) {
   return (
     <html
-  lang="ar"
-  dir="rtl"
-  data-scroll-behavior="smooth"
->
-      <body>{children}</body>
+      lang="ar"
+      dir="rtl"
+      data-scroll-behavior="smooth"
+    >
+      <body>
+        <Providers>
+          <Navbar />
+          {children}
+        </Providers>
+      </body>
     </html>
   );
 }
