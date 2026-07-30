@@ -26,6 +26,8 @@ const registerSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  console.log("=== REGISTER ROUTE WITH SUBSCRIPTION IS RUNNING ===");
+
   try {
     const body = await request.json();
 
@@ -75,19 +77,46 @@ export async function POST(request: Request) {
         name,
         email,
         password: hashedPassword,
+
+        subscription: {
+          create: {
+            plan: "FREE",
+            monthlyLimit: 25,
+            usedThisMonth: 0,
+          },
+        },
       },
+
       select: {
-        id: true,
-        name: true,
-        email: true,
-        createdAt: true,
-      },
+  id: true,
+  name: true,
+  email: true,
+  createdAt: true,
+  subscription: {
+    select: {
+      id: true,
+      plan: true,
+      monthlyLimit: true,
+      usedThisMonth: true,
+    },
+  },
+},
     });
+
+    console.log("========== USER CREATED ==========");
+    console.log(JSON.stringify(user, null, 2));
+    console.log("==================================");
 
     return NextResponse.json(
       {
         message: "تم إنشاء الحساب بنجاح",
-        user,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          createdAt: user.createdAt,
+          subscription: user.subscription,
+        },
       },
       {
         status: 201,

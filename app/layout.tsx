@@ -4,6 +4,7 @@ import "reactflow/dist/style.css";
 import type { Metadata } from "next";
 import Providers from "@/components/Providers";
 import Navbar from "@/components/Navbar";
+import SubscriptionStatus from "@/components/subscription/SubscriptionStatus";
 
 export const metadata: Metadata = {
   title: "أثر",
@@ -21,9 +22,14 @@ export default function RootLayout({
       dir="rtl"
       data-scroll-behavior="smooth"
     >
-      <body>
+      <body className="bg-slate-950">
         <Providers>
           <Navbar />
+
+          <div className="mx-auto max-w-7xl px-4 py-4">
+            <SubscriptionStatus />
+          </div>
+
           {children}
         </Providers>
       </body>

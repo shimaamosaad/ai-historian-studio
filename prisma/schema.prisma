@@ -6,16 +6,42 @@ datasource db {
   provider = "sqlite"
   url      = "file:./dev.db"
 }
+
+enum Plan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
 model User {
-  id       String @id @default(cuid())
+  id       String  @id @default(cuid())
   name     String?
-  email    String @unique
+  email    String  @unique
   password String
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  projects Project[]
+  projects     Project[]
+  subscription Subscription?
+}
+
+model Subscription {
+  id Int @id @default(autoincrement())
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  plan          Plan @default(FREE)
+  monthlyLimit  Int  @default(25)
+  usedThisMonth Int  @default(0)
+  extraCredits  Int  @default(0)
+
+  startsAt  DateTime  @default(now())
+  expiresAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Project {
@@ -25,9 +51,9 @@ model Project {
   period      String
 
   summary String?
-userId String?
+  userId  String?
 
-user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
   documents       Document[]
@@ -44,9 +70,9 @@ model Document {
   summary  String?
   entities String?
 
-  processingStatus String @default("COMPLETED")
-  processedPages   Int    @default(0)
-  totalPages       Int    @default(0)
+  processingStatus String  @default("COMPLETED")
+  processedPages   Int     @default(0)
+  totalPages       Int     @default(0)
   processingError  String?
 
   createdAt DateTime @default(now())
@@ -105,8 +131,7 @@ model EntityRelation {
 
   createdAt DateTime @default(now())
 
+  @@unique([sourceId, relation, targetId], name: "sourceId_relation_targetId")
   @@index([sourceId])
   @@index([targetId])
-
-  @@unique([sourceId, relation, targetId], name: "sourceId_relation_targetId")
 }

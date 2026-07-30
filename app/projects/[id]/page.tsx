@@ -8,27 +8,69 @@ import ProjectStats from "@/components/projects/ProjectStats";
 import ProjectDocumentsList from "@/components/projects/ProjectDocumentsList";
 import ProjectEntities from "@/components/projects/ProjectEntities";
 import AIResearchReport from "@/components/reports/AIResearchReport";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
+import { redirect } from "next/navigation";
 
-async function getProject(id: string) {
-  const res = await fetch(`http://localhost:3000/api/projects/${id}`, {
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
-    return null;
-  }
-
-  return res.json();
-}
 
 export default async function Page({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = await params;
-  const project = await getProject(id);
+  const session = await auth();
+  console.log("========== PROJECT PAGE ==========");
+console.log("Session:", session);
+console.log("User ID:", session?.user?.id);
 
+if (!session?.user?.id) {
+  redirect("/login");
+}
+
+const { id } = await params;
+const projectId = Number(id);
+
+
+if (Number.isNaN(projectId)) {
+  return (
+    <main
+      dir="rtl"
+      className="flex min-h-screen items-center justify-center bg-[#06101d] px-6 text-white"
+    >
+      <div className="w-full max-w-lg rounded-3xl border border-amber-400/15 bg-[#0a1727] p-10 text-center">
+        <h1 className="text-3xl font-black">رابط المشروع غير صحيح</h1>
+
+        <Link
+          href="/projects"
+          className="mt-7 inline-flex rounded-xl bg-amber-500 px-6 py-3 font-bold text-slate-950"
+        >
+          العودة إلى مشاريعي
+        </Link>
+      </div>
+    </main>
+  );
+}
+
+
+const project = await prisma.project.findFirst({
+  where: {
+    id: projectId,
+    userId: session.user.id,
+  },
+  include: {
+    documents: true,
+    projectEntities: {
+      include: {
+        entity: true,
+      },
+    },
+  },
+});
+console.log("========== PROJECT PAGE ==========");
+console.log("Session:", session);
+console.log("User ID:", session?.user?.id);
+console.log("Project ID:", projectId);
+console.log("Project:", project);
   if (!project) {
     return (
       <main
