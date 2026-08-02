@@ -35,12 +35,19 @@ export async function uploadDocument(
   formData.append("projectId", String(projectId));
   formData.append("file", file);
 
+  console.log("UPLOAD FUNCTION CALLED");
+console.log("Project ID:", projectId);
+console.log("File:", file.name);
+
   const res = await fetch("/api/documents/upload", {
     method: "POST",
     body: formData,
   });
 
   const data = await res.json();
+
+  console.log("UPLOAD RESPONSE STATUS:", res.status);
+console.log("UPLOAD RESPONSE DATA:", data);
 
   if (!res.ok) {
     throw new Error(data.error || "Upload failed");

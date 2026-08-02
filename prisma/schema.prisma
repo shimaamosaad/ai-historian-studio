@@ -40,6 +40,13 @@ model Subscription {
   startsAt  DateTime  @default(now())
   expiresAt DateTime?
 
+  paddleCustomerId     String?   @unique
+  paddleSubscriptionId String?   @unique
+  paddlePriceId        String?
+  paddleStatus         String?
+  billingCycle         String?
+  lastPaddleEventAt    DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -134,4 +141,17 @@ model EntityRelation {
   @@unique([sourceId, relation, targetId], name: "sourceId_relation_targetId")
   @@index([sourceId])
   @@index([targetId])
+}
+
+model PaddleWebhookEvent {
+  id Int @id @default(autoincrement())
+
+  eventId   String @unique
+  eventType String
+
+  occurredAt  DateTime
+  processedAt DateTime @default(now())
+
+  @@index([eventType])
+  @@index([occurredAt])
 }

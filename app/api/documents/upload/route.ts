@@ -10,9 +10,14 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
+class SubscriptionLimitError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SubscriptionLimitError";
+  }
+}
 
 export async function POST(request: Request) {
-  console.log("🔥🔥🔥 UPLOAD ROUTE CALLED 🔥🔥🔥");
   let savedFilePath: string | null = null;
 
   try {
@@ -172,15 +177,11 @@ export async function POST(request: Request) {
     const result = await prisma.$transaction(
       async (transaction) => {
         const currentSubscription =
-  await transaction.subscription.findUnique({
-    where: {
-      userId,
-    },
-  });
-
-console.log("===== CURRENT SUBSCRIPTION =====");
-console.log(JSON.stringify(currentSubscription, null, 2));
-console.log("================================");
+          await transaction.subscription.findUnique({
+            where: {
+              userId,
+            },
+          });
 
         if (!currentSubscription) {
           throw new Error(
@@ -223,10 +224,15 @@ console.log("================================");
           usageSource = "MONTHLY";
         } else if (currentSubscription.extraCredits > 0) {
           // الخصم من الأرصدة الإضافية
-          updatedSubscription =
-            await transaction.subscription.update({
+          // Do not rely solely on the value read above: another upload may
+          // consume the last credit before this transaction reaches here.
+          const creditDeduction =
+            await transaction.subscription.updateMany({
               where: {
                 userId,
+                extraCredits: {
+                  gt: 0,
+                },
               },
               data: {
                 extraCredits: {
@@ -235,11 +241,24 @@ console.log("================================");
               },
             });
 
+          if (creditDeduction.count !== 1) {
+            throw new Error(
+              "تم استهلاك الرصيد الإضافي بواسطة عملية رفع أخرى. يُرجى المحاولة مرة أخرى."
+            );
+          }
+
+          updatedSubscription =
+            await transaction.subscription.findUniqueOrThrow({
+              where: {
+                userId,
+              },
+            });
+
           usageSource = "EXTRA_CREDIT";
         } else {
-          throw new Error(
-            "تم استهلاك الحد الشهري والأرصدة الإضافية."
-          );
+          throw new SubscriptionLimitError(
+  "لقد استهلكت الحد الشهري والأرصدة الإضافية. يرجى شراء رصيد إضافي أو ترقية خطتك."
+);
         }
 
         const document =
@@ -329,6 +348,17 @@ console.log("================================");
       try {
         await fs.unlink(savedFilePath);
       } catch (deleteError) {
+        if (error instanceof SubscriptionLimitError) {
+  return NextResponse.json(
+    {
+      error: error.message,
+      reason: "MONTHLY_LIMIT_REACHED",
+    },
+    {
+      status: 429,
+    }
+  );
+}
         console.error(
           "Failed to delete uploaded file:",
           deleteError

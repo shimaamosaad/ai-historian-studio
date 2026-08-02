@@ -673,6 +673,8 @@ export async function POST(
       start + PAGES_PER_REQUEST,
       totalPages
     );
+    
+const { pdf } = await import("pdf-to-img");
 
     const rendered =
       await pdf(buffer, {
