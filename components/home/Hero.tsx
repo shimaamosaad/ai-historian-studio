@@ -181,12 +181,11 @@ export default function Hero() {
             </span>
           </h1>
 
-          <p className="mt-4 max-w-2xl text-lg leading-9 text-slate-300 md:text-xl">
-            منصة مدعومة بالذكاء الاصطناعي لتحليل الوثائق التاريخية، واستخراج
-            الشخصيات والأماكن والأحداث، وبناء الشبكات المعرفية والتقارير العلمية
-            الموثوقة.
-          </p>
-
+          <p className="mt-4 max-w-3xl text-lg leading-9 text-slate-300 md:text-xl">
+  ارفع وثيقتك التاريخية أو الأكاديمية، وسيحللها أثر ويستخرج
+  الشخصيات والأماكن والأحداث والعلاقات، ثم يبني تقريرًا علميًا
+  وشبكة معرفية وتسلسلًا زمنيًا خلال دقائق.
+</p>
           <div className="mt-6 grid max-w-2xl grid-cols-2 gap-4 sm:grid-cols-4">
             {features.map((feature) => {
               const Icon = feature.icon;
@@ -209,10 +208,10 @@ export default function Hero() {
 
           <div className="mt-6 flex flex-col gap-4 sm:flex-row">
             <Link
-              href="/projects/new"
+              href="/register"
               className="group inline-flex min-w-[220px] items-center justify-center gap-3 rounded-xl border border-amber-200/60 bg-gradient-to-l from-[#ffe08a] via-[#e9a62f] to-[#bd6c0d] px-7 py-4 text-lg font-black text-[#1c1204] shadow-[0_18px_50px_rgba(217,142,31,.22)] transition hover:-translate-y-1"
             >
-              ابدأ الآن
+              ابدأ مجانًا
               <ArrowLeft className="h-5 w-5 transition group-hover:-translate-x-1" />
             </Link>
 
@@ -225,20 +224,20 @@ export default function Hero() {
             </a>
           </div>
 
-          <div className="mt-5 flex flex-wrap items-center gap-4 text-sm text-slate-400">
-            <div className="flex -space-x-2 space-x-reverse">
-              {["م", "س", "ع"].map((letter) => (
-                <span
-                  key={letter}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#070c12] bg-[#1a2531] font-bold text-blue-200"
-                >
-                  {letter}
-                </span>
-              ))}
-            </div>
-            <span>+2,500 باحث ومؤسسة يثقون في أثر</span>
-            <ShieldCheck className="h-5 w-5 text-blue-300" />
-          </div>
+          <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-slate-300">
+  <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/[0.06] px-4 py-2">
+    <ShieldCheck className="h-4 w-4 text-emerald-300" />
+    خصوصية وأمان للمستندات
+  </span>
+
+  <span className="rounded-full border border-blue-400/20 bg-blue-500/[0.06] px-4 py-2">
+    يدعم PDF وWord
+  </span>
+
+  <span className="rounded-full border border-blue-400/20 bg-blue-500/[0.06] px-4 py-2">
+    يدعم العربية والإنجليزية
+  </span>
+</div>
         </div>
 
         <div dir="rtl" className="order-1 lg:order-2">
@@ -479,22 +478,21 @@ export default function Hero() {
         </div>
       </div>
       </div>
+<div className="relative z-10 border-t border-blue-400/10 bg-[#020713]/72">
+  <div className="mx-auto flex max-w-[1536px] flex-col items-center justify-between gap-4 px-5 py-6 text-center lg:flex-row lg:px-8">
+    <p className="font-bold text-amber-300">
+      صُمم للباحثين وطلاب الدراسات العليا والمؤسسات الأكاديمية
+    </p>
 
-      <div className="relative z-10 border-t border-blue-400/10 bg-[#020713]/72">
-        <div className="mx-auto flex max-w-[1536px] flex-col items-center justify-between gap-5 px-5 py-6 text-center lg:flex-row lg:px-8">
-          <p className="font-bold text-amber-300">
-            موثوق من باحثين ومؤسسات حول العالم
-          </p>
-
-          <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm font-semibold text-slate-500">
-            <span>جامعة القاهرة</span>
-            <span>مكتبة الإسكندرية</span>
-            <span>جامعة قطر</span>
-            <span>جامعة الإمام</span>
-            <span>مركز الملك فيصل</span>
-          </div>
-        </div>
-      </div>
+    <div className="flex flex-wrap items-center justify-center gap-5 text-sm font-semibold text-slate-500">
+      <span>تحليل الوثائق</span>
+      <span>استخراج الكيانات</span>
+      <span>الشبكات المعرفية</span>
+      <span>التسلسل الزمني</span>
+    </div>
+  </div>
+</div>
+      
     </section>
   );
 }
