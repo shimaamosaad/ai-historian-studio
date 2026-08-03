@@ -2,13 +2,12 @@ import Link from "next/link";
 import {
   BookOpen,
   Code2,
-  BriefcaseBusiness,
   Mail,
   ShieldCheck,
 } from "lucide-react";
 
 const productLinks = [
-  { label: "المميزات", href: "#features" },
+  { label: "المميزات", href: "#platform" },
   { label: "مجالات البحث", href: "#research-domains" },
   { label: "كيف تعمل المنصة", href: "#how-it-works" },
   { label: "الأسعار", href: "#pricing" },
@@ -58,17 +57,10 @@ export default function Footer() {
 
             <div className="mt-6 flex items-center gap-3">
               <a
-                href="mailto:hello@athar.ai"
+                href="shimaamosaad58@gmail.com"
                 className="flex h-10 w-10 items-center justify-center rounded-xl border border-blue-400/15 bg-blue-500/10 text-slate-400 transition hover:border-blue-300/40 hover:text-blue-300"
               >
                 <Mail className="h-5 w-5" />
-              </a>
-
-              <a
-                href="#"
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-blue-400/15 bg-blue-500/10 text-slate-400 transition hover:border-blue-300/40 hover:text-blue-300"
-              >
-                <BriefcaseBusiness className="h-5 w-5" />
               </a>
 
               <a

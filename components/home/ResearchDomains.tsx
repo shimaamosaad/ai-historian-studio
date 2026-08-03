@@ -6,7 +6,7 @@ import { researchDomains } from "@/lib/domains/domainConfig";
 export default function ResearchDomains() {
   return (
     <section
-      id="research-domains"
+      id="domains"
       className="relative overflow-hidden bg-[#020712] px-6 pt-16 pb-24 text-white"
       dir="rtl"
     >
