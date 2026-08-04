@@ -17,14 +17,13 @@ import {
 import * as mammoth from "mammoth";
 
 import { prisma } from "@/lib/prisma";
-import { analyzeByDomain } from "@/lib/ai/analyzeByDomain";
-import { saveEntities } from "@/lib/ai/saveEntities";
+import { processHierarchicalAnalysis } from "@/lib/ai/history/processHierarchicalAnalysis";
 import { normalizeArabicText } from "@/lib/ocr/normalizeArabicText";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-const PAGES_PER_REQUEST = 5;
+const PAGES_PER_REQUEST = 10;
 const MIN_DIRECT_TEXT_QUALITY = 60;
 const MIN_FINAL_TEXT_QUALITY = 45;
 const MAX_PRIVATE_USE_RATIO = 0.02;
@@ -325,14 +324,52 @@ function removePageMarkers(
  * تنفيذ التحليل وحفظ النتائج
  * بعد تحديد النسخة النهائية من النص.
  */
+async function continueHierarchicalProcessing(
+  documentId: number
+) {
+  const hierarchicalAnalysis =
+    await processHierarchicalAnalysis(
+      documentId,
+      {
+        sectionsPerRun: 1,
+        pagesPerSection: 10,
+        maxCharactersPerSection:
+          45_000,
+      }
+    );
+
+  const updatedDocument =
+    await prisma.document.findUnique({
+      where: {
+        id: documentId,
+      },
+    });
+
+  if (!updatedDocument) {
+    throw new Error(
+      "تعذر العثور على المستند بعد التحليل الهرمي."
+    );
+  }
+
+  return {
+    ...updatedDocument,
+    hierarchicalAnalysis,
+  };
+}
+
+/*
+ * حفظ النص النهائي بعد اكتمال الاستخراج أو OCR،
+ * ثم بدء التحليل الهرمي للمستند.
+ *
+ * لا نعتبر المستند مكتملًا بعد استخراج النص فقط؛
+ * بل يظل PROCESSING حتى تحليل جميع الأقسام ودمجها.
+ */
 async function completeDocumentProcessing({
   documentId,
-  projectId,
   content,
   totalPages,
 }: {
   documentId: number;
-  projectId: number;
   content: string;
   totalPages: number;
 }) {
@@ -340,116 +377,131 @@ async function completeDocumentProcessing({
     removePageMarkers(content);
 
   const aiText =
-  normalizeArabicText(
-    textWithoutMarkers
+    normalizeArabicText(
+      textWithoutMarkers
+    );
+
+  const finalTextQuality =
+    evaluateArabicText(aiText);
+
+  const privateUseRatio =
+    getPrivateUseRatio(aiText);
+
+  const invalidCharacterRatio =
+    getInvalidCharacterRatio(aiText);
+
+  const brokenFontEncoding =
+    hasBrokenFontEncoding(aiText);
+
+  console.log(
+    "========== FINAL TEXT SAFETY CHECK =========="
   );
 
-const finalTextQuality =
-  evaluateArabicText(aiText);
-
-const privateUseRatio =
-  getPrivateUseRatio(aiText);
-
-const invalidCharacterRatio =
-  getInvalidCharacterRatio(aiText);
-
-const brokenFontEncoding =
-  hasBrokenFontEncoding(aiText);
-
-console.log(
-  "========== FINAL TEXT SAFETY CHECK =========="
-);
-
-console.log(
-  "Final text length:",
-  aiText.length
-);
-
-console.log(
-  "Final text quality:",
-  finalTextQuality
-);
-
-console.log(
-  "Private-use ratio:",
-  Math.round(privateUseRatio * 10000) /
-    100,
-  "%"
-);
-
-console.log(
-  "Invalid-character ratio:",
-  Math.round(
-    invalidCharacterRatio * 10000
-  ) / 100,
-  "%"
-);
-
-console.log(
-  "Broken font encoding:",
-  brokenFontEncoding
-);
-
-console.log(
-  "============================================="
-);
-
-if (!aiText || aiText.length < 20) {
-  throw new Error(
-    "لم يتم استخراج نص كافٍ من المستند. جرّبي ملفًا أوضح أو نسخة أخرى من المستند."
-  );
-}
-
-if (brokenFontEncoding) {
-  throw new Error(
-    "تعذّر تحليل المستند لأن النص المستخرج يستخدم ترميز خط عربي قديمًا أو مشوّهًا. حاول النظام استخدام OCR، لكن النص النهائي ما زال غير صالح للتحليل."
-  );
-}
-
-if (
-  getArabicRatio(aiText) > 0.25 &&
-  finalTextQuality <
-    MIN_FINAL_TEXT_QUALITY
-) {
-  throw new Error(
-    "جودة النص العربي المستخرج منخفضة جدًا، ولذلك تم إيقاف التحليل لحماية النتائج من الأخطاء. جرّبي نسخة PDF أوضح أو ملف Word."
-  );
-}
-
-const ai =
-  await analyzeByDomain(
-    aiText,
-    "history"
+  console.log(
+    "Final text length:",
+    aiText.length
   );
 
-  await saveEntities(
-    projectId,
-    ai
+  console.log(
+    "Final text quality:",
+    finalTextQuality
   );
 
-  await prisma.project.update({
-    where: {
-      id: projectId,
-    },
-    data: {
-      summary: ai.summary,
-    },
-  });
+  console.log(
+    "Private-use ratio:",
+    Math.round(
+      privateUseRatio * 10000
+    ) / 100,
+    "%"
+  );
 
-  return prisma.document.update({
-    where: {
-      id: documentId,
-    },
-    data: {
-      content,
-      summary: ai.summary,
-      entities: JSON.stringify(ai),
-      processingStatus: "COMPLETED",
-      processedPages: totalPages,
-      totalPages,
-      processingError: null,
-    },
-  });
+  console.log(
+    "Invalid-character ratio:",
+    Math.round(
+      invalidCharacterRatio * 10000
+    ) / 100,
+    "%"
+  );
+
+  console.log(
+    "Broken font encoding:",
+    brokenFontEncoding
+  );
+
+  console.log(
+    "============================================="
+  );
+
+  if (
+    !aiText ||
+    aiText.length < 20
+  ) {
+    throw new Error(
+      "لم يتم استخراج نص كافٍ من المستند. جرّبي ملفًا أوضح أو نسخة أخرى من المستند."
+    );
+  }
+
+  if (brokenFontEncoding) {
+    throw new Error(
+      "تعذّر تحليل المستند لأن النص المستخرج يستخدم ترميز خط عربي قديمًا أو مشوّهًا. حاول النظام استخدام OCR، لكن النص النهائي ما زال غير صالح للتحليل."
+    );
+  }
+
+  if (
+    getArabicRatio(aiText) > 0.25 &&
+    finalTextQuality <
+      MIN_FINAL_TEXT_QUALITY
+  ) {
+    throw new Error(
+      "جودة النص العربي المستخرج منخفضة جدًا، ولذلك تم إيقاف التحليل لحماية النتائج من الأخطاء. جرّبي نسخة PDF أوضح أو ملف Word."
+    );
+  }
+
+  /*
+   * عند إعادة استخراج النص نحذف الأقسام القديمة،
+   * لأن نطاق الصفحات أو محتواها قد يكون قد تغير.
+   */
+  await prisma.$transaction([
+    prisma.documentSection.deleteMany({
+      where: {
+        documentId,
+      },
+    }),
+
+    prisma.document.update({
+      where: {
+        id: documentId,
+      },
+      data: {
+        content,
+        processingStatus:
+          "PROCESSING",
+        processedPages:
+          totalPages,
+        totalPages,
+        processingError:
+          null,
+
+        sectionAnalysisStatus:
+          "PENDING",
+        processedSections:
+          0,
+        totalSections:
+          0,
+        sectionAnalysisError:
+          null,
+      },
+    }),
+  ]);
+
+  /*
+   * نحلل قسمًا واحدًا في هذا الطلب.
+   * الواجهة ستواصل استدعاء المسار حتى اكتمال
+   * جميع الأقسام ثم دمجها في تحليل نهائي.
+   */
+  return continueHierarchicalProcessing(
+    documentId
+  );
 }
 
 export async function POST(
@@ -502,7 +554,9 @@ export async function POST(
 
   if (
     document.processingStatus ===
-    "COMPLETED"
+      "COMPLETED" &&
+    document.sectionAnalysisStatus ===
+      "COMPLETED"
   ) {
     return NextResponse.json(
       document
@@ -510,6 +564,34 @@ export async function POST(
   }
 
   try {
+    /*
+     * إذا انتهى استخراج كل الصفحات بالفعل،
+     * نكمل التحليل الهرمي مباشرةً دون إعادة
+     * قراءة الملف أو تشغيل OCR من البداية.
+     */
+    const hasFinishedTextExtraction =
+      Boolean(
+        document.content?.trim()
+      ) &&
+      document.totalPages > 0 &&
+      document.processedPages >=
+        document.totalPages;
+
+    if (
+      hasFinishedTextExtraction &&
+      document.sectionAnalysisStatus !==
+        "COMPLETED"
+    ) {
+      const continued =
+        await continueHierarchicalProcessing(
+          document.id
+        );
+
+      return NextResponse.json(
+        continued
+      );
+    }
+
     const filePath = path.join(
       process.cwd(),
       "public",
@@ -555,7 +637,6 @@ export async function POST(
       const completed =
         await completeDocumentProcessing({
           documentId: document.id,
-          projectId: document.projectId,
           content: wordContent,
           totalPages: 1,
         });
@@ -646,8 +727,6 @@ export async function POST(
         await completeDocumentProcessing({
           documentId:
             document.id,
-          projectId:
-            document.projectId,
           content:
             extractedContent,
           totalPages,
@@ -852,9 +931,6 @@ const { pdf } = await import("pdf-to-img");
       await completeDocumentProcessing({
         documentId:
           document.id,
-
-        projectId:
-          document.projectId,
 
         content:
           finalContent,

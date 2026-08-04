@@ -77,15 +77,50 @@ model Document {
   summary  String?
   entities String?
 
-  processingStatus String  @default("COMPLETED")
-  processedPages   Int     @default(0)
-  totalPages       Int     @default(0)
+  processingStatus      String   @default("COMPLETED")
+  processedPages        Int      @default(0)
+  totalPages            Int      @default(0)
+  processingError       String?
+  sectionAnalysisStatus String   @default("PENDING")
+  processedSections     Int      @default(0)
+  totalSections         Int      @default(0)
+  sectionAnalysisError  String?
+  createdAt             DateTime @default(now())
+
+  projectId Int
+  project   Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sections  DocumentSection[]
+}
+
+model DocumentSection {
+  id Int @id @default(autoincrement())
+
+  sectionIndex Int
+  startPage    Int
+  endPage      Int
+
+  content  String
+  summary  String?
+  analysis String?
+
+  people    String?
+  places    String?
+  events    String?
+  relations String?
+  keywords  String?
+
+  processingStatus String  @default("PENDING")
   processingError  String?
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  projectId Int
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  documentId Int
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, sectionIndex])
+  @@index([documentId])
+  @@index([processingStatus])
 }
 
 model Entity {

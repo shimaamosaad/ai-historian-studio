@@ -768,6 +768,61 @@ function selectDiverseResults(
 
   return selected;
 }
+function selectEvenlySpacedResults(
+  results: DocumentSearchResult[],
+  maxResults: number
+): DocumentSearchResult[] {
+  if (
+    results.length <= maxResults
+  ) {
+    return results;
+  }
+
+  if (maxResults <= 1) {
+    return [results[0]];
+  }
+
+  const selected: DocumentSearchResult[] =
+    [];
+
+  const selectedIndexes =
+    new Set<number>();
+
+  for (
+    let index = 0;
+    index < maxResults;
+    index++
+  ) {
+    const resultIndex =
+      Math.round(
+        index *
+          (
+            results.length - 1
+          ) /
+          (
+            maxResults - 1
+          )
+      );
+
+    if (
+      selectedIndexes.has(
+        resultIndex
+      )
+    ) {
+      continue;
+    }
+
+    selectedIndexes.add(
+      resultIndex
+    );
+
+    selected.push(
+      results[resultIndex]
+    );
+  }
+
+  return selected;
+}
 
 export function searchDocument(
   content: string,
@@ -881,14 +936,19 @@ export function searchDocument(
       });
 
   if (
-    includeAllRangeChunks &&
-    originalWords.length === 0
-  ) {
-    return sortedResults.slice(
-      0,
-      maxResults
-    );
-  }
+  includeAllRangeChunks &&
+  originalWords.length === 0
+) {
+  /*
+   * في الأسئلة العامة والتحليلية نختار
+   * مقاطع موزعة على المستند كله بدل
+   * الاكتفاء بالمقاطع الأولى.
+   */
+  return selectEvenlySpacedResults(
+    sortedResults,
+    maxResults
+  );
+}
 
   return selectDiverseResults(
     sortedResults,
