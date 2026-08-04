@@ -498,6 +498,14 @@ function createChunks(
       start + chunkSize,
       cleanText.length
     );
+if (start > 0) {
+  while (
+    start < cleanText.length &&
+    cleanText[start] !== " "
+  ) {
+    start++;
+  }
+}
 
     if (end < cleanText.length) {
       const sentenceEnds = [
@@ -518,6 +526,16 @@ function createChunks(
         end = sentenceEnd + 1;
       }
     }
+while (
+  end < cleanText.length &&
+  cleanText[end] !== " " &&
+  cleanText[end] !== "." &&
+  cleanText[end] !== "،" &&
+  cleanText[end] !== "؛" &&
+  cleanText[end] !== "؟"
+) {
+  end++;
+}
 
     const chunk = cleanText
       .slice(start, end)
