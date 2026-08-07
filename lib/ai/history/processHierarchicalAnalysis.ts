@@ -427,34 +427,41 @@ export async function processHierarchicalAnalysis(
       message:
         "اكتمل تحليل جميع أقسام المستند ودمجها في تحليل شامل.",
     };
-  } catch (error) {
-    const message =
-      getErrorMessage(error);
+ } catch (error) {
+  const message =
+    getErrorMessage(error);
 
-    console.error(
-      "HIERARCHICAL ANALYSIS ERROR:",
-      error
-    );
+  console.error(
+    "HIERARCHICAL ANALYSIS ERROR:",
+    error
+  );
 
-    await markSectionAnalysisFailed(
-      documentId,
-      message
-    );
+  /*
+   * لو المشكلة أثناء دمج الأقسام،
+   * لا نحول المستند كله إلى FAILED.
+   * لأن OCR والأقسام تم حفظهم بالفعل.
+   */
 
-    await prisma.document.update({
-      where: {
-        id: documentId,
-      },
+  await prisma.document.update({
+    where: {
+      id: documentId,
+    },
 
-      data: {
-        processingStatus:
-          "FAILED",
+    data: {
+      sectionAnalysisStatus:
+        "FAILED",
 
-        processingError:
-          message,
-      },
-    });
+      sectionAnalysisError:
+        message,
 
-    throw error;
-  }
+      processingStatus:
+        "PROCESSING",
+
+      processingError:
+        null,
+    },
+  });
+
+  throw error;
+}
 }

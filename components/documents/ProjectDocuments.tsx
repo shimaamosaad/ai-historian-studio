@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { UploadCloud } from "lucide-react";
 import DocumentUpload from "./DocumentUpload";
 
 type Props = {
@@ -13,24 +14,36 @@ export default function ProjectDocuments({
   const router = useRouter();
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-slate-900 p-6">
+    <section
+      dir="rtl"
+      className="overflow-hidden rounded-2xl border border-white/10 bg-[#081526]"
+    >
+      <div className="flex flex-col gap-3 border-b border-white/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-amber-300/15 bg-amber-300/[0.06] text-amber-300">
+            <UploadCloud className="h-5 w-5" />
+          </div>
 
-      <h2 className="mb-2 text-2xl font-bold text-white">
-        📄 Upload Historical Document
-      </h2>
+          <div>
+            <h2 className="font-bold text-white">
+              رفع مستند جديد
+            </h2>
 
-      <p className="mb-6 text-slate-400">
-        ارفع ملف PDF أو Word ليتم تحليله واستخراج الكيانات
-        والعلاقات التاريخية تلقائياً.
-      </p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              PDF أو Word للتحليل والاستخراج التلقائي
+            </p>
+          </div>
+        </div>
+      </div>
 
-      <DocumentUpload
-        projectId={projectId}
-        onUploaded={() => {
-          router.refresh();
-        }}
-      />
-
-    </div>
+      <div className="p-4 sm:p-5">
+        <DocumentUpload
+          projectId={projectId}
+          onUploaded={() => {
+            router.refresh();
+          }}
+        />
+      </div>
+    </section>
   );
 }

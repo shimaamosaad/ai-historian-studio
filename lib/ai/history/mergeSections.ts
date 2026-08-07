@@ -43,10 +43,10 @@ type StoredSection = {
 };
 
 const MAX_MERGE_INPUT_CHARACTERS =
-  45_000;
+  12_000;
 
 const MAX_MERGE_OUTPUT_TOKENS =
-  14_000;
+  12_000;
 
 /**
  * تنظيف النصوص قبل إرسالها إلى OpenAI.
@@ -599,7 +599,7 @@ ${digests.join("\n\n==============================\n\n")}
       MAX_MERGE_OUTPUT_TOKENS,
 
     reasoningEffort:
-  "high",
+  "low",
 
   });
 }

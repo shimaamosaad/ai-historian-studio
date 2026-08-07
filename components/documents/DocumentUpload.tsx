@@ -351,222 +351,137 @@ export default function DocumentUpload({
   }
 
   return (
-    <section
-      className="overflow-hidden rounded-[28px] border border-white/10 bg-[#081525] shadow-xl shadow-black/20"
-      dir="rtl"
-    >
-      <div className="border-b border-white/10 bg-white/[0.025] px-5 py-5 sm:px-7">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-bold tracking-[0.2em] text-amber-400">
-              DOCUMENT UPLOAD
-            </p>
+    <section dir="rtl">
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        disabled={uploading}
+        className="hidden"
+        onChange={handleFileChange}
+      />
 
-            <h2 className="mt-2 text-2xl font-black text-white">
-              رفع مستند جديد
-            </h2>
-
-            <p className="mt-2 text-sm leading-7 text-slate-400">
-              ارفع ملف PDF ليقوم أثر
-              باستخراج النص وتحليل
-              الشخصيات والأماكن
-              والأحداث والعلاقات.
-            </p>
-          </div>
-
-          <div className="w-fit rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-xs font-bold text-emerald-300">
-            PDF حتى 50 ميجابايت
-          </div>
-        </div>
-      </div>
-
-      <div className="p-5 sm:p-7">
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-          disabled={uploading}
-          className="hidden"
-          onChange={handleFileChange}
-        />
-
-        <div
-          role="button"
-          tabIndex={uploading ? -1 : 0}
-          onClick={() => {
-            if (!uploading) {
-              inputRef.current?.click();
-            }
-          }}
-          onKeyDown={(event) => {
-            if (
-              !uploading &&
-              (event.key === "Enter" ||
-                event.key === " ")
-            ) {
-              event.preventDefault();
-              inputRef.current?.click();
-            }
-          }}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          className={`group relative flex min-h-[250px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-[24px] border-2 border-dashed px-6 py-10 text-center transition ${
-            dragging
-              ? "border-amber-400 bg-amber-400/10"
-              : "border-white/15 bg-white/[0.025] hover:border-amber-400/45 hover:bg-amber-400/[0.04]"
-          } ${
-            uploading
-              ? "cursor-not-allowed opacity-70"
-              : ""
-          }`}
-        >
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(245,158,11,0.08),transparent_58%)]" />
-
-          <div className="relative flex h-20 w-20 items-center justify-center rounded-full border border-amber-400/20 bg-amber-400/10 text-4xl shadow-lg shadow-amber-950/20 transition group-hover:scale-105">
+      <div
+        role="button"
+        tabIndex={uploading ? -1 : 0}
+        onClick={() => {
+          if (!uploading) {
+            inputRef.current?.click();
+          }
+        }}
+        onKeyDown={(event) => {
+          if (
+            !uploading &&
+            (event.key === "Enter" ||
+              event.key === " ")
+          ) {
+            event.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        className={`flex min-h-[105px] cursor-pointer items-center justify-between gap-4 rounded-xl border border-dashed px-4 py-4 transition sm:px-5 ${
+          dragging
+            ? "border-amber-400 bg-amber-400/[0.08]"
+            : "border-white/10 bg-white/[0.025] hover:border-amber-400/35 hover:bg-amber-400/[0.03]"
+        } ${
+          uploading
+            ? "cursor-not-allowed opacity-70"
+            : ""
+        }`}
+      >
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-400/15 bg-amber-400/[0.06] text-xl text-amber-300">
             ↑
           </div>
 
-          <h3 className="relative mt-5 text-xl font-black text-white">
-          اسحب ملف PDF أو Word هنا
-          </h3>
-
-          <p className="relative mt-2 text-sm leading-7 text-slate-400">
-            أو اضغط لاختيار الملف
-            من جهازك
-          </p>
-
-          <div className="relative mt-5 flex flex-wrap justify-center gap-2 text-xs text-slate-500">
-            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">
-              ملفات PDF
-            </span>
-
-            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">
-              حد أقصى 50 MB
-            </span>
-
-            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">
-              يدعم المستندات المصورة
-            </span>
-          </div>
-        </div>
-
-        {file && (
-          <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-white/10 bg-black/20 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-red-400/20 bg-red-400/10 text-sm font-black text-red-300">
-  {file.name.toLowerCase().endsWith(".docx") ? "DOCX" : "PDF"}
-</div>
-
-              <div className="min-w-0">
-                <p className="truncate font-bold text-white">
-                  {file.name}
-                </p>
-
-                <p className="mt-1 text-xs text-slate-500">
-                  {formatFileSize(
-                    file.size
-                  )}
-                </p>
-              </div>
-            </div>
-
-            {!uploading && (
-              <button
-                type="button"
-                onClick={clearSelection}
-                className="rounded-xl border border-red-400/20 bg-red-400/10 px-4 py-2 text-sm font-bold text-red-300 transition hover:bg-red-400/20"
-              >
-                إزالة الملف
-              </button>
-            )}
-          </div>
-        )}
-
-        {uploading && (
-          <div className="mt-5 rounded-2xl border border-amber-400/15 bg-amber-400/[0.04] p-4">
-            <div className="mb-3 flex items-center justify-between gap-4 text-sm">
-              <span className="font-bold text-slate-300">
-                تقدم المعالجة
-              </span>
-
-              <span className="font-black text-amber-400">
-                {progress}%
-              </span>
-            </div>
-
-            <div className="h-3 w-full overflow-hidden rounded-full bg-white/10">
-              <div
-                className="h-full rounded-full bg-gradient-to-l from-amber-400 to-orange-500 transition-all duration-500"
-                style={{
-                  width: `${progress}%`,
-                }}
-              />
-            </div>
-          </div>
-        )}
-
-        {message && (
-          <div
-            aria-live="polite"
-            className={`mt-5 rounded-2xl border px-4 py-3 text-sm font-bold leading-7 ${
-              messageType === "success"
-                ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-300"
-                : messageType ===
-                    "error"
-                  ? "border-red-400/20 bg-red-400/10 text-red-300"
-                  : "border-sky-400/20 bg-sky-400/10 text-sky-300"
-            }`}
-          >
-            {message}
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={upload}
-          disabled={!file || uploading}
-          className="mt-5 inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-l from-amber-400 to-orange-500 px-6 py-4 text-base font-black text-slate-950 shadow-lg shadow-amber-950/20 transition hover:-translate-y-0.5 hover:shadow-amber-500/20 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
-        >
-          {uploading
-            ? "جارٍ رفع وتحليل المستند..."
-            : file
-              ? "رفع المستند وبدء التحليل"
-              : "اختر ملف PDF أو Word أولًا"}
-        </button>
-
-        <div className="mt-5 grid gap-3 md:grid-cols-2">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-            <p className="font-bold text-slate-200">
-              المستندات النصية
+          <div className="min-w-0 text-right">
+            <p className="truncate font-bold text-white">
+              {file
+                ? file.name
+                : "اسحب الملف هنا أو اضغط للاختيار"}
             </p>
 
-            <p className="mt-1 text-xs leading-6 text-slate-500">
-              عادةً يتم استخراج نصها
-              وتحليلها بسرعة أكبر.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-            <p className="font-bold text-slate-200">
-              المستندات المصورة
-            </p>
-
-            <p className="mt-1 text-xs leading-6 text-slate-500">
-              تحتاج إلى OCR وقد يستغرق
-              تحليلها وقتًا أطول بحسب
-              عدد الصفحات وجودة الصور.
+            <p className="mt-1 text-xs text-slate-500">
+              {file
+                ? `${formatFileSize(file.size)} • ${
+                    file.name
+                      .toLowerCase()
+                      .endsWith(".docx")
+                      ? "Word"
+                      : "PDF"
+                  }`
+                : "PDF أو Word • حد أقصى 50 ميجابايت"}
             </p>
           </div>
         </div>
 
-        {uploading && (
-          <p className="mt-4 text-center text-xs leading-6 text-slate-500">
-            اترك الصفحة والسيرفر مفتوحين
-            حتى انتهاء تحليل جميع الصفحات.
-          </p>
+        {!file && (
+          <span className="hidden shrink-0 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-300 sm:inline-flex">
+            اختر ملفًا
+          </span>
         )}
       </div>
+
+      {file && !uploading && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={clearSelection}
+            className="rounded-lg border border-red-400/15 bg-red-400/[0.06] px-3 py-2 text-xs font-semibold text-red-300 transition hover:bg-red-400/10"
+          >
+            إزالة الملف
+          </button>
+
+          <button
+            type="button"
+            onClick={upload}
+            className="rounded-lg bg-amber-400 px-4 py-2 text-sm font-black text-slate-950 transition hover:bg-amber-300"
+          >
+            رفع وبدء التحليل
+          </button>
+        </div>
+      )}
+
+      {uploading && (
+        <div className="mt-3 rounded-xl border border-amber-400/15 bg-amber-400/[0.035] p-3">
+          <div className="mb-2 flex items-center justify-between gap-3 text-xs">
+            <span className="font-semibold text-slate-300">
+              {message || "جارٍ رفع وتحليل المستند..."}
+            </span>
+
+            <span className="font-black text-amber-300">
+              {progress}%
+            </span>
+          </div>
+
+          <div className="h-2 overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full rounded-full bg-gradient-to-l from-amber-400 to-orange-500 transition-all duration-500"
+              style={{
+                width: `${progress}%`,
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {message && !uploading && (
+        <div
+          aria-live="polite"
+          className={`mt-3 rounded-xl border px-3 py-2 text-xs font-semibold leading-6 ${
+            messageType === "success"
+              ? "border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-300"
+              : messageType === "error"
+                ? "border-red-400/20 bg-red-400/[0.06] text-red-300"
+                : "border-sky-400/20 bg-sky-400/[0.06] text-sky-300"
+          }`}
+        >
+          {message}
+        </div>
+      )}
     </section>
   );
 }

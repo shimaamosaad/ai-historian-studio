@@ -18,7 +18,9 @@ import {
 } from "lucide-react";
 
 import DeleteDocumentButton from "@/components/documents/DeleteDocumentButton";
-import DocumentQuestion from "@/components/documents/DocumentQuestion";
+import DocumentAssistant from "@/components/projects/document/DocumentAssistant";
+import DocumentAnalysis from "@/components/projects/document/DocumentAnalysis";
+import DocumentHeader from "@/components/projects/document/DocumentHeader";
 
 type DocumentItem = {
   id: number;
@@ -31,16 +33,13 @@ type DocumentItem = {
   processedPages?: number | null;
   totalPages?: number | null;
   processingError?: string | null;
+  entities?: string | null;
 };
 
 type Props = {
   documents: DocumentItem[];
 };
 
-type ProcessingStatus = {
-  label: string;
-  className: string;
-};
 
 type StatusFilter =
   | "ALL"
@@ -60,49 +59,6 @@ function getDocumentName(document: DocumentItem) {
     document.fileName ||
     `مستند رقم ${document.id}`
   );
-}
-
-function getProcessingLabel(
-  status?: string | null
-): ProcessingStatus {
-  switch (status) {
-    case "QUEUED":
-    case "PENDING":
-      return {
-        label: "في انتظار التحليل",
-        className:
-          "border-slate-400/20 bg-slate-400/10 text-slate-300",
-      };
-
-    case "PROCESSING":
-      return {
-        label: "جاري التحليل",
-        className:
-          "border-amber-400/20 bg-amber-400/10 text-amber-300",
-      };
-
-    case "FAILED":
-    case "ERROR":
-      return {
-        label: "فشل التحليل",
-        className:
-          "border-red-400/20 bg-red-400/10 text-red-300",
-      };
-
-    case "COMPLETED":
-      return {
-        label: "مكتمل",
-        className:
-          "border-emerald-400/20 bg-emerald-400/10 text-emerald-300",
-      };
-
-    default:
-      return {
-        label: "جاهز",
-        className:
-          "border-cyan-400/20 bg-cyan-400/10 text-cyan-300",
-      };
-  }
 }
 
 function calculateProgress(document: DocumentItem) {
@@ -630,11 +586,6 @@ export default function ProjectDocumentsList({
                     processedPages ||
                     null;
 
-                  const status =
-                    getProcessingLabel(
-                      doc.processingStatus
-                    );
-
                   const progress =
                     calculateProgress(doc);
 
@@ -659,170 +610,121 @@ export default function ProjectDocumentsList({
                       key={doc.id}
                       className="group overflow-hidden rounded-2xl border border-white/10 bg-[#0b1a2c] transition duration-300 hover:-translate-y-0.5 hover:border-amber-400/25 hover:shadow-xl hover:shadow-black/20"
                     >
-                      <div className="flex flex-col gap-5 p-5 lg:flex-row lg:items-center lg:justify-between">
-                        <div className="flex min-w-0 items-start gap-4">
-                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-red-400/20 bg-red-400/10 text-red-300 transition group-hover:scale-105">
-                            <FileText className="h-6 w-6" />
-                          </div>
+                      <DocumentHeader
+                        documentName={documentName}
+                        documentType={documentType}
+                        uploadDate={uploadDate}
+                        displayedPages={displayedPages}
+                        processingStatus={doc.processingStatus}
+                      />
 
-                          <div className="min-w-0">
-                            <h3 className="break-words text-lg font-bold text-white">
-                              {documentName}
-                            </h3>
 
-                            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-400">
-                              <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1">
-                                {documentType}
-                              </span>
-
-                              <span>
-                                {uploadDate}
-                              </span>
-
-                              <span>
-                                {displayedPages !==
-                                null
-                                  ? `${displayedPages} صفحة`
-                                  : "جارٍ حساب عدد الصفحات"}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <span
-                          className={`w-fit rounded-full border px-3 py-1.5 text-sm font-semibold ${status.className}`}
-                        >
-                          {status.label}
-                        </span>
-                      </div>
-
-                      {(isProcessing ||
-                        hasFailed ||
-                        doc.processingStatus ===
-                          "COMPLETED") && (
-                        <div className="border-t border-white/10 px-5 py-5">
+                      {isProcessing && (
+                        <div className="border-t border-white/10 px-5 py-4">
                           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                             <div>
                               <p className="text-sm font-semibold text-slate-200">
-                                تقدم معالجة
-                                المستند
+                                جاري تحليل المستند
                               </p>
 
                               <p className="mt-1 text-xs text-slate-400">
                                 {totalPages > 0
                                   ? `${processedPages} من ${totalPages} صفحة`
-                                  : isProcessing
-                                    ? "جارٍ تجهيز صفحات المستند"
-                                    : "لم يتم تحديد عدد الصفحات"}
+                                  : "جارٍ تجهيز صفحات المستند"}
                               </p>
                             </div>
 
-                            <span
-                              className={`text-sm font-bold ${
-                                hasFailed
-                                  ? "text-red-300"
-                                  : progress ===
-                                      100
-                                    ? "text-emerald-300"
-                                    : "text-amber-300"
-                              }`}
-                            >
+                            <span className="text-sm font-bold text-amber-300">
                               {progress}%
                             </span>
                           </div>
 
-                          <div className="h-3 overflow-hidden rounded-full border border-white/10 bg-black/30">
+                          <div className="h-2 overflow-hidden rounded-full border border-white/10 bg-black/30">
                             <div
-                              className={`h-full rounded-full transition-all duration-700 ${
-                                hasFailed
-                                  ? "bg-red-500"
-                                  : progress ===
-                                      100
-                                    ? "bg-emerald-500"
-                                    : "bg-gradient-to-l from-amber-400 to-yellow-600"
-                              }`}
+                              className="h-full rounded-full bg-gradient-to-l from-amber-400 to-yellow-600 transition-all duration-700"
                               style={{
-                                width: `${Math.max(
-                                  progress,
-                                  isProcessing
-                                    ? 3
-                                    : 0
-                                )}%`,
+                                width: `${Math.max(progress, 3)}%`,
                               }}
                             />
                           </div>
 
-                          {progress === 100 &&
-                            !hasFailed && (
-                              <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-emerald-300">
-                                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-400/15">
-                                  ✓
-                                </span>
+                          <div className="mt-3 flex items-center gap-2 text-xs text-amber-300">
+                            <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
+                            يمكنك مغادرة الصفحة والعودة لاحقًا، وسيُحفظ التقدم تلقائيًا.
+                          </div>
+                        </div>
+                      )}
 
-                                اكتمل تحليل
-                                المستند وأصبح
-                                جاهزًا للبحث.
-                              </div>
+                      {isCompleted && !hasFailed && (
+                        <div className="border-t border-white/10 px-5 py-3">
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+                            <span className="inline-flex items-center gap-2 font-semibold text-emerald-300">
+                              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-400/15 text-xs">
+                                ✓
+                              </span>
+                              اكتمل التحليل
+                            </span>
+
+                            {displayedPages !== null && (
+                              <>
+                                <span className="text-slate-700">•</span>
+                                <span className="text-slate-400">
+                                  {displayedPages} صفحة
+                                </span>
+                              </>
                             )}
 
-                          {isProcessing && (
-                            <div className="mt-3 flex items-center gap-2 text-xs text-amber-300">
-                              <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
+                            <span className="text-slate-700">•</span>
 
-                              يمكنك مغادرة
-                              الصفحة والعودة
-                              لاحقًا، وسيُحفظ
-                              التقدم بعد كل
-                              دفعة.
-                            </div>
-                          )}
+                            <span className="text-slate-400">
+                              جاهز للبحث
+                            </span>
+                          </div>
+                        </div>
+                      )}
 
-                          {hasFailed && (
-                            <div className="mt-4 rounded-xl border border-red-400/20 bg-red-400/[0.06] p-4">
-                              <p className="text-sm font-semibold text-red-300">
-                                تعذر استكمال
-                                التحليل
-                              </p>
+                      {hasFailed && (
+                        <div className="border-t border-white/10 px-5 py-4">
+                          <div className="rounded-xl border border-red-400/20 bg-red-400/[0.06] p-4">
+                            <p className="text-sm font-semibold text-red-300">
+                              تعذر استكمال التحليل
+                            </p>
 
-                              <p className="mt-2 break-words text-xs leading-6 text-red-200/70">
-                                {doc.processingError ||
-                                  "حدث خطأ غير معروف أثناء معالجة المستند."}
-                              </p>
+                            <p className="mt-2 break-words text-xs leading-6 text-red-200/70">
+                              {doc.processingError ||
+                                "حدث خطأ غير معروف أثناء معالجة المستند."}
+                            </p>
 
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setDocuments(
-                                    (
-                                      currentDocuments
-                                    ) =>
-                                      currentDocuments.map(
-                                        (
-                                          document
-                                        ) =>
-                                          document.id ===
-                                          doc.id
-                                            ? {
-                                                ...document,
-                                                processingStatus:
-                                                  "PROCESSING",
-                                                processingError:
-                                                  null,
-                                              }
-                                            : document
-                                      )
-                                  );
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDocuments((currentDocuments) =>
+                                  currentDocuments.map((document) =>
+                                    document.id === doc.id
+                                      ? {
+                                          ...document,
+                                          processingStatus: "PROCESSING",
+                                          processingError: null,
+                                        }
+                                      : document
+                                  )
+                                );
 
-                                  void processDocument(
-                                    doc.id
-                                  );
-                                }}
-                                className="mt-3 rounded-lg border border-red-400/25 bg-red-400/10 px-4 py-2 text-sm font-semibold text-red-200 transition hover:bg-red-400/20"
-                              >
-                                إعادة المحاولة
-                              </button>
-                            </div>
-                          )}
+                                void processDocument(doc.id);
+                              }}
+                              className="mt-3 rounded-lg border border-red-400/25 bg-red-400/10 px-4 py-2 text-sm font-semibold text-red-200 transition hover:bg-red-400/20"
+                            >
+                              إعادة المحاولة
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {isCompleted && (
+                        <div className="border-t border-white/10 bg-black/10 p-4">
+                          <DocumentAnalysis
+                            entities={doc.entities}
+                          />
                         </div>
                       )}
 
@@ -861,20 +763,15 @@ export default function ProjectDocumentsList({
                       </div>
 
                       {isCompleted ? (
-                        <div className="border-t border-white/10 bg-black/10 p-5">
-                          <DocumentQuestion
-                            documentId={
-                              doc.id
-                            }
+                        <div className="border-t border-white/10 bg-black/10 p-4">
+                          <DocumentAssistant
+                            documentId={doc.id}
                           />
                         </div>
                       ) : (
-                        <div className="border-t border-white/10 bg-black/10 p-5">
-                          <p className="rounded-xl border border-dashed border-white/10 px-4 py-5 text-center text-sm text-slate-500">
-                            البحث داخل
-                            المستند سيصبح
-                            متاحًا بعد اكتمال
-                            التحليل.
+                        <div className="border-t border-white/10 bg-black/10 p-4">
+                          <p className="rounded-xl border border-dashed border-white/10 px-4 py-4 text-center text-sm text-slate-500">
+                            البحث داخل المستند سيصبح متاحًا بعد اكتمال التحليل.
                           </p>
                         </div>
                       )}

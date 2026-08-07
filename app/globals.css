@@ -1,43 +1,355 @@
 @import "tailwindcss";
 
-html,
-body {
-  height: 100%;
-  width: 100%;
+:root {
+  --athar-bg: #06101d;
+  --athar-bg-deep: #020617;
+  --athar-surface: #081526;
+  --athar-surface-soft: #0b1728;
+
+  --athar-text: #f8fafc;
+  --athar-text-soft: #cbd5e1;
+  --athar-text-muted: #94a3b8;
+  --athar-text-faint: #64748b;
+
+  --athar-border: rgba(255, 255, 255, 0.10);
+  --athar-border-soft: rgba(255, 255, 255, 0.07);
+
+  --athar-gold: #fbbf24;
+  --athar-gold-soft: #fcd34d;
+  --athar-cyan: #67e8f9;
+  --athar-success: #34d399;
+  --athar-danger: #f87171;
+
+  --font-sans: var(--font-athar-body);
+  --font-display: var(--font-athar-heading);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  direction: rtl;
+  scroll-behavior: smooth;
+  background: var(--athar-bg-deep);
 }
 
 body {
-  background: #f9fafb;
-  color: #111827;
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  min-height: 100vh;
+
+  background:
+    radial-gradient(
+      circle at 92% 4%,
+      rgba(251, 191, 36, 0.055),
+      transparent 32rem
+    ),
+    radial-gradient(
+      circle at 8% 92%,
+      rgba(34, 211, 238, 0.04),
+      transparent 34rem
+    ),
+    linear-gradient(
+      135deg,
+      var(--athar-bg-deep) 0%,
+      #071426 48%,
+      var(--athar-bg) 100%
+    );
+
+  color: var(--athar-text);
+
+  font-family:
+    var(--font-athar-body),
+    Arial,
+    sans-serif;
+
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.9;
+
+  text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-::-webkit-scrollbar {
-  width: 8px;
+/* ================================
+   TYPOGRAPHY
+================================ */
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin-top: 0;
+
+  font-family:
+    var(--font-athar-heading),
+    var(--font-athar-body),
+    Arial,
+    sans-serif;
+
+  letter-spacing: -0.018em;
+  text-wrap: balance;
 }
 
-::-webkit-scrollbar-track {
+h1 {
+  line-height: 1.35;
+}
+
+h2,
+h3 {
+  line-height: 1.45;
+}
+
+p,
+li,
+blockquote {
+  line-height: 1.95;
+}
+
+strong,
+b {
+  font-weight: 700;
+}
+
+/*
+  Tailwind classes sometimes explicitly set font-sans.
+  This keeps them aligned with the new Athar identity
+  even without using @theme.
+*/
+.font-sans {
+  font-family:
+    var(--font-athar-body),
+    Arial,
+    sans-serif !important;
+}
+
+.font-display,
+.athar-heading {
+  font-family:
+    var(--font-athar-heading),
+    var(--font-athar-body),
+    Arial,
+    sans-serif !important;
+}
+
+/* ================================
+   LONG ACADEMIC READING
+================================ */
+
+.academic-text {
+  font-family:
+    var(--font-athar-body),
+    Arial,
+    sans-serif;
+
+  font-size: clamp(1rem, 0.96rem + 0.12vw, 1.08rem);
+  line-height: 2.08;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--athar-text-soft);
+}
+
+.academic-text p + p {
+  margin-top: 1.05rem;
+}
+
+.reading-width {
+  max-width: 78ch;
+}
+
+/* ================================
+   FORMS & BUTTONS
+================================ */
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button,
+[role="button"] {
+  font-family:
+    var(--font-athar-heading),
+    var(--font-athar-body),
+    Arial,
+    sans-serif;
+}
+
+input,
+textarea,
+select {
+  caret-color: var(--athar-gold);
+}
+
+textarea {
+  line-height: 1.9;
+}
+
+::placeholder {
+  color: var(--athar-text-faint);
+  opacity: 1;
+}
+
+/* ================================
+   COMMON ATHAR UI UTILITIES
+================================ */
+
+.athar-card {
+  border: 1px solid var(--athar-border);
+  border-radius: 1rem;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.018),
+      rgba(255, 255, 255, 0.008)
+    ),
+    var(--athar-surface);
+  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.16);
+}
+
+.athar-card-soft {
+  border: 1px solid var(--athar-border-soft);
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.athar-section-title {
+  font-family:
+    var(--font-athar-heading),
+    var(--font-athar-body),
+    Arial,
+    sans-serif;
+
+  font-weight: 700;
+  color: var(--athar-text);
+}
+
+.athar-muted {
+  color: var(--athar-text-muted);
+}
+
+.athar-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--athar-border-soft);
+  border-radius: 9999px;
+  padding: 0.34rem 0.72rem;
+  background: rgba(255, 255, 255, 0.035);
+  font-size: 0.78rem;
+  line-height: 1.2;
+  color: var(--athar-text-soft);
+}
+
+.athar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border-radius: 0.65rem;
+  padding: 0.62rem 1rem;
+  font-weight: 700;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.athar-button:active {
+  transform: translateY(1px);
+}
+
+.athar-button-primary {
+  background: var(--athar-gold);
+  color: #111827;
+}
+
+.athar-button-primary:hover {
+  background: var(--athar-gold-soft);
+}
+
+/* ================================
+   DETAILS / ACCORDIONS
+================================ */
+
+details > summary {
+  font-family:
+    var(--font-athar-heading),
+    var(--font-athar-body),
+    Arial,
+    sans-serif;
+}
+
+summary::marker {
+  color: var(--athar-gold);
+}
+
+/* ================================
+   SCROLLBARS
+================================ */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color:
+    rgba(148, 163, 184, 0.28)
+    transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+*::-webkit-scrollbar-track {
   background: transparent;
 }
 
-::-webkit-scrollbar-thumb {
-  background: #c7c7c7;
-  border-radius: 8px;
+*::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background:
+    rgba(148, 163, 184, 0.24);
+  background-clip: padding-box;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #a3a3a3;
+*::-webkit-scrollbar-thumb:hover {
+  background:
+    rgba(251, 191, 36, 0.28);
+  background-clip: padding-box;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+/* ================================
+   SELECTION & FOCUS
+================================ */
+
+::selection {
+  background: rgba(251, 191, 36, 0.24);
+  color: #ffffff;
 }
 
-button {
-  font-family: inherit;
+:focus-visible {
+  outline: 2px solid rgba(251, 191, 36, 0.68);
+  outline-offset: 3px;
 }
-html {
-  scroll-behavior: smooth;
+
+/* ================================
+   MOBILE READING
+================================ */
+
+@media (max-width: 640px) {
+  body {
+    font-size: 15px;
+    line-height: 1.85;
+  }
+
+  .academic-text {
+    font-size: 1rem;
+    line-height: 1.95;
+  }
 }

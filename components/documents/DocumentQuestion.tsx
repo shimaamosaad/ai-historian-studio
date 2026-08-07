@@ -1,12 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import {
+  BookOpen,
+  Check,
+  Clipboard,
+  FileText,
+  LoaderCircle,
+  Search,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
 
 type Props = {
   documentId: number;
 };
 
-type Evidence = {
+type EvidenceItem = {
   text: string;
   page: number | null;
 };
@@ -15,7 +25,9 @@ type AskResponse = {
   answer?: string;
   page?: number | null;
   pages?: number[];
-  evidence?: Evidence[];
+  quote?: string | null;
+  evidence?: EvidenceItem[];
+  evidenceCount?: number;
   score?: number;
   confidence?: number;
   error?: string;
@@ -27,9 +39,111 @@ type ConversationItem = {
   answer: string;
   page: number | null;
   pages: number[];
-  evidence: Evidence[];
+  quote: string;
+  evidence: EvidenceItem[];
   score: number;
 };
+
+function cleanEvidence(
+  evidence?: EvidenceItem[]
+): EvidenceItem[] {
+  if (!Array.isArray(evidence)) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+
+  return evidence
+    .filter(
+      (item) =>
+        item &&
+        typeof item.text === "string" &&
+        item.text.trim().length > 0
+    )
+    .map((item) => ({
+      text: item.text
+        .replace(/\s+/g, " ")
+        .trim(),
+      page:
+        typeof item.page === "number"
+          ? item.page
+          : null,
+    }))
+    .filter((item) => {
+      const key =
+        `${item.page ?? "x"}:${item.text
+          .slice(0, 300)
+          .toLowerCase()}`;
+
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 8);
+}
+
+function getPages(
+  data: AskResponse,
+  evidence: EvidenceItem[]
+): number[] {
+  const directPages = Array.isArray(data.pages)
+    ? data.pages.filter(
+        (value): value is number =>
+          typeof value === "number"
+      )
+    : [];
+
+  const evidencePages = evidence
+    .map((item) => item.page)
+    .filter(
+      (page): page is number =>
+        typeof page === "number"
+    );
+
+  const fallbackPage =
+    typeof data.page === "number"
+      ? [data.page]
+      : [];
+
+  return Array.from(
+    new Set([
+      ...directPages,
+      ...evidencePages,
+      ...fallbackPage,
+    ])
+  ).sort((a, b) => a - b);
+}
+
+function getConfidenceLabel(
+  score: number
+): string {
+  if (score >= 80) {
+    return "دعم قوي من المستند";
+  }
+
+  if (score >= 55) {
+    return "دعم متوسط من المستند";
+  }
+
+  return "الدعم محدود ويحتاج مراجعة";
+}
+
+function getConfidenceClass(
+  score: number
+): string {
+  if (score >= 80) {
+    return "border-emerald-400/15 bg-emerald-400/[0.06] text-emerald-300";
+  }
+
+  if (score >= 55) {
+    return "border-amber-400/15 bg-amber-400/[0.06] text-amber-300";
+  }
+
+  return "border-red-400/15 bg-red-400/[0.06] text-red-300";
+}
 
 export default function DocumentQuestion({
   documentId,
@@ -46,10 +160,8 @@ export default function DocumentQuestion({
   const [error, setError] =
     useState("");
 
-  const [
-    copiedEvidenceId,
-    setCopiedEvidenceId,
-  ] = useState<string | null>(null);
+  const [copiedKey, setCopiedKey] =
+    useState<string | null>(null);
 
   async function askDocument() {
     const cleanQuestion =
@@ -64,21 +176,20 @@ export default function DocumentQuestion({
 
     setLoading(true);
     setError("");
-    setCopiedEvidenceId(null);
+    setCopiedKey(null);
 
     try {
       const response = await fetch(
         `/api/documents/${documentId}/ask`,
         {
           method: "POST",
-
           headers: {
             "Content-Type":
               "application/json",
           },
-
           body: JSON.stringify({
-            question: cleanQuestion,
+            question:
+              cleanQuestion,
           }),
         }
       );
@@ -93,61 +204,29 @@ export default function DocumentQuestion({
         );
       }
 
-      const answer =
-        data.answer ||
-        "لم يتم العثور على إجابة واضحة.";
+      const evidence =
+        cleanEvidence(
+          data.evidence
+        );
+
+      const pages =
+        getPages(
+          data,
+          evidence
+        );
 
       const page =
-        typeof data.page === "number"
+        typeof data.page ===
+        "number"
           ? data.page
-          : null;
+          : pages[0] ?? null;
 
-      const pages = Array.isArray(
-        data.pages
-      )
-        ? data.pages.filter(
-            (
-              value
-            ): value is number =>
-              typeof value ===
-              "number"
-          )
-        : page !== null
-          ? [page]
-          : [];
-
-      const evidence =
-        Array.isArray(
-          data.evidence
-        )
-          ? data.evidence
-              .filter(
-                (
-                  item
-                ): item is Evidence =>
-                  Boolean(item) &&
-                  typeof item.text ===
-                    "string" &&
-                  (
-                    item.page ===
-                      null ||
-                    typeof item.page ===
-                      "number"
-                  )
-              )
-              .map((item) => ({
-                text:
-                  item.text.trim(),
-
-                page:
-                  item.page,
-              }))
-              .filter(
-                (item) =>
-                  item.text.length >
-                  0
-              )
-          : [];
+      const quote =
+        typeof data.quote ===
+        "string"
+          ? data.quote.trim()
+          : evidence[0]?.text ??
+            "";
 
       const score =
         typeof data.confidence ===
@@ -158,23 +237,20 @@ export default function DocumentQuestion({
             ? data.score
             : 0;
 
-      const newItem: ConversationItem =
-        {
-          id: `${Date.now()}-${Math.random()}`,
-
-          question:
-            cleanQuestion,
-
-          answer,
-
-          page,
-
-          pages,
-
-          evidence,
-
-          score,
-        };
+      const newItem:
+        ConversationItem = {
+        id: `${Date.now()}-${Math.random()}`,
+        question:
+          cleanQuestion,
+        answer:
+          data.answer ||
+          "لم يتم العثور على إجابة واضحة.",
+        page,
+        pages,
+        quote,
+        evidence,
+        score,
+      };
 
       setConversation(
         (current) => [
@@ -195,111 +271,61 @@ export default function DocumentQuestion({
     }
   }
 
-  async function copyEvidence(
-    conversationId: string,
-    evidenceIndex: number,
-    evidence: Evidence
-  ) {
-    if (!evidence.text) {
-      return;
-    }
-
+  async function copyText({
+    key,
+    text,
+  }: {
+    key: string;
+    text: string;
+  }) {
     try {
-      const pageText =
-        evidence.page !== null
-          ? `الصفحة: ${evidence.page}`
-          : "رقم الصفحة غير متوفر";
-
-      const citationText =
-        `${evidence.text}\n\n${pageText}`;
-
       await navigator.clipboard.writeText(
-        citationText
+        text
       );
 
-      const copyId =
-        `${conversationId}-${evidenceIndex}`;
-
-      setCopiedEvidenceId(
-        copyId
-      );
+      setCopiedKey(key);
 
       window.setTimeout(() => {
-        setCopiedEvidenceId(
-          null
-        );
-      }, 2000);
+        setCopiedKey(null);
+      }, 1800);
     } catch {
       setError(
-        "تعذر نسخ الدليل."
+        "تعذر نسخ النص."
       );
     }
   }
 
-  async function copyAnswer(
-    item: ConversationItem
+  function buildCitationText(
+    item: ConversationItem,
+    evidence: EvidenceItem
   ) {
-    if (!item.answer) {
-      return;
-    }
+    const pageText =
+      evidence.page !== null
+        ? `الصفحة ${evidence.page}`
+        : "صفحة غير محددة";
 
-    try {
-      const pagesText =
-        item.pages.length > 0
-          ? `الصفحات المستخدمة: ${item.pages.join(
-              "، "
-            )}`
-          : item.page !== null
-            ? `الصفحة المستخدمة: ${item.page}`
-            : "الصفحات المستخدمة غير متوفرة";
-
-      const answerText =
-        `${item.answer}\n\n${pagesText}`;
-
-      await navigator.clipboard.writeText(
-        answerText
-      );
-
-      const copyId =
-        `${item.id}-answer`;
-
-      setCopiedEvidenceId(
-        copyId
-      );
-
-      window.setTimeout(() => {
-        setCopiedEvidenceId(
-          null
-        );
-      }, 2000);
-    } catch {
-      setError(
-        "تعذر نسخ الإجابة."
-      );
-    }
+    return `${evidence.text}\n\nالمصدر: ${pageText}`;
   }
 
   function clearConversation() {
     setConversation([]);
     setError("");
-    setCopiedEvidenceId(
-      null
-    );
+    setCopiedKey(null);
   }
 
   return (
-    <section className="rounded-xl border border-slate-700 bg-slate-900 p-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <section
+      dir="rtl"
+      className="space-y-4"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="mb-2 text-xl font-bold text-white">
-            🤖 مساعد أثر البحثي
-          </h2>
+          <h3 className="font-bold text-white">
+            اسأل عن هذا المستند
+          </h3>
 
-          <p className="max-w-3xl text-sm leading-6 text-slate-400">
-            اكتب سؤالك، وسيبحث أثر في المستند
-            كاملًا، ويجمع المعلومات من الصفحات
-            المختلفة، ثم يقدم إجابة أكاديمية
-            مدعومة بالأدلة.
+          <p className="mt-1 text-xs leading-6 text-slate-500">
+            الإجابات مرتبطة بالنص والصفحات الداعمة داخل المستند.
           </p>
         </div>
 
@@ -311,321 +337,264 @@ export default function DocumentQuestion({
               clearConversation
             }
             disabled={loading}
-            className="rounded-lg border border-red-500/30 bg-red-950/20 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-950/40 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg border border-red-400/15 bg-red-400/[0.05] px-3 py-2 text-xs font-semibold text-red-300 transition hover:bg-red-400/10 disabled:opacity-50"
           >
-            مسح سجل الأسئلة
+            <Trash2 className="h-3.5 w-3.5" />
+            مسح السجل
           </button>
         )}
       </div>
 
-      <textarea
-        value={question}
-        onChange={(event) =>
-          setQuestion(
-            event.target.value
-          )
-        }
-        onKeyDown={(event) => {
-          if (
-            event.key ===
-              "Enter" &&
-            (
-              event.ctrlKey ||
-              event.metaKey
+      <div className="rounded-xl border border-white/10 bg-slate-950/20 p-3">
+        <textarea
+          value={question}
+          onChange={(event) =>
+            setQuestion(
+              event.target.value
             )
-          ) {
-            event.preventDefault();
-
-            void askDocument();
           }
-        }}
-        placeholder="مثال: حلل العلاقة بين الشخصيات والأحداث الواردة في المستند."
-        className="mt-5 w-full resize-y rounded-lg border border-slate-600 bg-slate-800 p-3 text-white outline-none transition placeholder:text-slate-500 focus:border-blue-500"
-        rows={4}
-        disabled={loading}
-      />
+          onKeyDown={(event) => {
+            if (
+              event.key ===
+                "Enter" &&
+              (event.ctrlKey ||
+                event.metaKey)
+            ) {
+              event.preventDefault();
 
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={
-            askDocument
-          }
-          disabled={
-            loading ||
-            !question.trim()
-          }
-          className="rounded-lg bg-blue-600 px-6 py-2 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {loading
-            ? "جاري البحث والتحليل..."
-            : "اسأل المستند"}
-        </button>
+              void askDocument();
+            }
+          }}
+          placeholder="اكتب سؤالك عن هذا المستند..."
+          rows={3}
+          disabled={loading}
+          className="w-full resize-y bg-transparent text-sm leading-7 text-white outline-none placeholder:text-slate-600"
+        />
 
-        <span className="text-xs text-slate-500">
-          Ctrl + Enter للإرسال
-        </span>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.06] pt-3">
+          <span className="text-[11px] text-slate-600">
+            Ctrl + Enter للإرسال
+          </span>
+
+          <button
+            type="button"
+            onClick={
+              askDocument
+            }
+            disabled={
+              loading ||
+              !question.trim()
+            }
+            className="inline-flex items-center gap-2 rounded-lg bg-amber-400 px-4 py-2 text-sm font-black text-slate-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {loading ? (
+              <>
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+                جاري البحث
+              </>
+            ) : (
+              <>
+                <Search className="h-4 w-4" />
+                اسأل أثر
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
-      {loading && (
-        <div className="mt-5 rounded-lg border border-blue-500/20 bg-blue-950/20 p-4 text-sm text-blue-200">
-          يقوم أثر الآن بقراءة المقاطع المرتبطة
-          بالسؤال وتحليلها باستخدام الذكاء
-          الاصطناعي...
-        </div>
-      )}
-
       {error && (
-        <div className="mt-5 rounded-lg border border-red-500/30 bg-red-950/30 p-4 text-sm text-red-300">
+        <div className="rounded-xl border border-red-400/20 bg-red-400/[0.06] px-4 py-3 text-sm text-red-300">
           {error}
         </div>
       )}
 
       {conversation.length >
         0 && (
-        <div className="mt-8 space-y-8">
-          <div className="flex items-center justify-between border-b border-white/10 pb-3">
-            <h3 className="font-bold text-white">
-              سجل الأسئلة والإجابات
-            </h3>
-
-            <span className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-400">
-              {
-                conversation.length
-              }{" "}
-              سؤال
-            </span>
-          </div>
-
+        <div className="space-y-5">
           {conversation.map(
-            (
-              item,
-              index
-            ) => (
+            (item, index) => (
               <article
                 key={item.id}
-                className="rounded-2xl border border-white/10 bg-slate-950/45 p-5"
+                className="overflow-hidden rounded-xl border border-white/10 bg-slate-950/25"
               >
-                <div className="rounded-xl border border-amber-400/20 bg-amber-950/15 p-4">
-                  <p className="mb-2 text-xs font-bold text-amber-300">
-                    سؤال الباحث{" "}
+                <div className="border-b border-white/[0.06] px-4 py-3">
+                  <p className="text-[11px] font-semibold text-amber-300">
+                    السؤال{" "}
                     {index + 1}
                   </p>
 
-                  <p className="leading-7 text-white">
+                  <p className="mt-1 text-sm leading-7 text-slate-200">
                     {
                       item.question
                     }
                   </p>
                 </div>
 
-                <div className="mt-4 rounded-xl border border-cyan-500/20 bg-cyan-950/20 p-5">
-                  <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                    <h4 className="font-bold text-cyan-300">
-                      🤖 إجابة أثر
+                <div className="p-4">
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="h-4 w-4 text-cyan-300" />
+
+                    <h4 className="font-bold text-white">
+                      الإجابة
                     </h4>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        copyAnswer(
-                          item
-                        )
-                      }
-                      className="rounded-lg bg-cyan-950/50 px-3 py-2 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-900/60"
-                    >
-                      {copiedEvidenceId ===
-                      `${item.id}-answer`
-                        ? "✓ تم نسخ الإجابة"
-                        : "📋 نسخ الإجابة"}
-                    </button>
                   </div>
 
-                  <p className="whitespace-pre-wrap leading-8 text-slate-100">
-                    {
-                      item.answer
-                    }
+                  <p className="mt-3 whitespace-pre-wrap text-sm leading-8 text-slate-200">
+                    {item.answer}
                   </p>
-                </div>
 
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <div className="rounded-xl border border-white/10 bg-slate-800 p-4">
-                    <p className="text-sm text-slate-400">
-                      📄 الصفحات
-                      المستخدمة
-                    </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {item.pages.length >
+                      0 && (
+                      <div className="inline-flex items-center gap-2 rounded-lg border border-cyan-400/15 bg-cyan-400/[0.05] px-3 py-2 text-xs text-cyan-200">
+                        <FileText className="h-3.5 w-3.5" />
 
-                    <p className="mt-2 text-xl font-bold text-white">
-                      {item.pages
-                        .length >
-                      0
-                        ? item.pages.join(
-                            "، "
-                          )
-                        : item.page !==
-                            null
-                          ? item.page
-                          : "غير متوفرة"}
-                    </p>
-                  </div>
+                        الصفحات:{" "}
+                        {item.pages.join(
+                          "، "
+                        )}
+                      </div>
+                    )}
 
-                  <div className="rounded-xl border border-white/10 bg-slate-800 p-4">
-                    <p className="text-sm text-slate-400">
-                      🎯 درجة الثقة
-                    </p>
-
-                    <p
-                      className={`mt-2 text-2xl font-bold ${
-                        item.score >=
-                        80
-                          ? "text-green-400"
-                          : item.score >=
-                              50
-                            ? "text-amber-400"
-                            : "text-red-400"
-                      }`}
+                    <div
+                      className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${getConfidenceClass(
+                        item.score
+                      )}`}
                     >
+                      <ShieldCheck className="h-3.5 w-3.5" />
+
                       {
                         item.score
                       }
-                      %
-                    </p>
-                  </div>
-                </div>
-
-                {item.evidence
-                  .length >
-                  0 && (
-                  <div className="mt-4 rounded-xl border border-white/10 bg-slate-800/80 p-4">
-                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <h4 className="font-bold text-white">
-                          📚 الأدلة
-                          المستخرجة من
-                          المستند
-                        </h4>
-
-                        <p className="mt-1 text-xs leading-5 text-slate-400">
-                          النصوص التالية
-                          نُقحت آليًا
-                          لتحسين القراءة
-                          مع الحفاظ على
-                          المعنى الوارد في
-                          المستند.
-                        </p>
-                      </div>
-
-                      <span className="rounded-full border border-blue-400/15 bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-300">
-                        {
-                          item
-                            .evidence
-                            .length
-                        }{" "}
-                        دليل
-                      </span>
-                    </div>
-
-                    <div className="space-y-4">
-                      {item.evidence.map(
-                        (
-                          evidence,
-                          evidenceIndex
-                        ) => {
-                          const copyId =
-                            `${item.id}-${evidenceIndex}`;
-
-                          return (
-                            <div
-                              key={
-                                copyId
-                              }
-                              className="rounded-xl border border-blue-400/10 bg-slate-900/80 p-4"
-                            >
-                              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-bold text-blue-300">
-                                    الدليل{" "}
-                                    {
-                                      evidenceIndex +
-                                      1
-                                    }
-                                  </span>
-
-                                  <span className="text-sm font-semibold text-slate-300">
-                                    {evidence.page !==
-                                    null
-                                      ? `📄 الصفحة ${evidence.page}`
-                                      : "📄 الصفحة غير متوفرة"}
-                                  </span>
-                                </div>
-
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    copyEvidence(
-                                      item.id,
-                                      evidenceIndex,
-                                      evidence
-                                    )
-                                  }
-                                  className="rounded-lg bg-slate-700 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-600"
-                                >
-                                  {copiedEvidenceId ===
-                                  copyId
-                                    ? "✓ تم النسخ"
-                                    : "📋 نسخ الدليل"}
-                                </button>
-                              </div>
-
-                              <p className="whitespace-pre-wrap border-r-4 border-blue-500 pr-4 leading-8 text-slate-300">
-                                {
-                                  evidence.text
-                                }
-                              </p>
-                            </div>
-                          );
-                        }
+                      % —{" "}
+                      {getConfidenceLabel(
+                        item.score
                       )}
                     </div>
+                  </div>
 
-                    <div className="mt-4 rounded-lg border border-emerald-400/10 bg-emerald-400/5 p-3 text-xs leading-6 text-emerald-200">
-                      استخدم أثر{" "}
-                      {
-                        item
-                          .evidence
-                          .length
-                      }{" "}
-                      من الأدلة المرتبطة
-                      بالسؤال لبناء هذه
-                      الإجابة.
+                  {item.evidence
+                    .length > 0 ? (
+                    <div className="mt-5">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <h4 className="font-bold text-white">
+                          الأدلة والمصادر
+                        </h4>
+
+                        <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] text-slate-500">
+                          {
+                            item
+                              .evidence
+                              .length
+                          }{" "}
+                          دليل
+                        </span>
+                      </div>
+
+                      <div className="space-y-3">
+                        {item.evidence.map(
+                          (
+                            evidence,
+                            evidenceIndex
+                          ) => {
+                            const evidenceKey =
+                              `${item.id}-${evidenceIndex}`;
+
+                            return (
+                              <div
+                                key={
+                                  evidenceKey
+                                }
+                                className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-4"
+                              >
+                                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                                  <span className="rounded-lg border border-amber-300/10 bg-amber-300/[0.05] px-2.5 py-1 text-xs font-semibold text-amber-200">
+                                    {evidence.page !==
+                                    null
+                                      ? `الصفحة ${evidence.page}`
+                                      : "صفحة غير محددة"}
+                                  </span>
+
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      copyText(
+                                        {
+                                          key: evidenceKey,
+                                          text: buildCitationText(
+                                            item,
+                                            evidence
+                                          ),
+                                        }
+                                      )
+                                    }
+                                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.06]"
+                                  >
+                                    {copiedKey ===
+                                    evidenceKey ? (
+                                      <>
+                                        <Check className="h-3.5 w-3.5 text-emerald-300" />
+                                        تم النسخ
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Clipboard className="h-3.5 w-3.5" />
+                                        نسخ الاستشهاد
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+
+                                <p className="text-sm leading-8 text-slate-300">
+                                  {
+                                    evidence.text
+                                  }
+                                </p>
+                              </div>
+                            );
+                          }
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  ) : item.quote ? (
+                    <div className="mt-5 rounded-xl border border-white/[0.08] bg-white/[0.025] p-4">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <h4 className="font-bold text-white">
+                          النص المستشهد به
+                        </h4>
 
-                {item.evidence
-                  .length ===
-                  0 && (
-                  <div className="mt-4 rounded-lg border border-amber-500/20 bg-amber-950/20 p-4 text-sm leading-6 text-amber-300">
-                    تم إنشاء الإجابة، لكن
-                    لم تتوافر أدلة نصية
-                    واضحة بما يكفي
-                    لعرضها بصورة منفصلة.
-                  </div>
-                )}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            copyText({
+                              key: `${item.id}-quote`,
+                              text:
+                                item.quote +
+                                (item.page !==
+                                null
+                                  ? `\n\nالمصدر: الصفحة ${item.page}`
+                                  : ""),
+                            })
+                          }
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.06]"
+                        >
+                          <Clipboard className="h-3.5 w-3.5" />
 
-                {item.pages
-                  .length ===
-                  0 &&
-                  item.page ===
-                    null && (
-                    <p className="mt-4 text-sm text-amber-300">
-                      رقم الصفحة غير
-                      متوفر لهذا المستند؛
-                      غالبًا تم رفعه قبل
-                      إضافة ميزة ترقيم
-                      الصفحات.
-                    </p>
-                  )}
+                          {copiedKey ===
+                          `${item.id}-quote`
+                            ? "تم النسخ"
+                            : "نسخ الاستشهاد"}
+                        </button>
+                      </div>
+
+                      <p className="text-sm leading-8 text-slate-300">
+                        {
+                          item.quote
+                        }
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
               </article>
             )
           )}
