@@ -65,6 +65,8 @@ model Project {
 
   documents       Document[]
   projectEntities ProjectEntity[]
+
+  conversations ProjectConversation[]
 }
 
 model Document {
@@ -90,6 +92,8 @@ model Document {
   projectId Int
   project   Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
   sections  DocumentSection[]
+
+  conversations ProjectConversation[]
 }
 
 model DocumentSection {
@@ -176,6 +180,46 @@ model EntityRelation {
   @@unique([sourceId, relation, targetId], name: "sourceId_relation_targetId")
   @@index([sourceId])
   @@index([targetId])
+}
+
+model ProjectConversation {
+  id Int @id @default(autoincrement())
+
+  projectId Int
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  documentId Int?
+  document   Document? @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  title String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages ProjectMessage[]
+
+  @@index([projectId])
+  @@index([documentId])
+  @@index([updatedAt])
+}
+
+model ProjectMessage {
+  id Int @id @default(autoincrement())
+
+  conversationId Int
+  conversation   ProjectConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  role    String
+  content String
+
+  confidence          Int?
+  sourceDocumentCount Int?
+  metadata            String?
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId])
+  @@index([createdAt])
 }
 
 model PaddleWebhookEvent {

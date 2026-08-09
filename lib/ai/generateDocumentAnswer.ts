@@ -342,6 +342,36 @@ function getFriendlyOpenAIError(
   );
 }
 
+
+function cleanFinalAnswer(
+  value: string
+): string {
+  return value
+    .replace(/```json/gi, "")
+    .replace(/```/g, "")
+    .replace(
+      /["']?evidenceIndex["']?\s*:\s*\d+\s*,?/gi,
+      ""
+    )
+    .replace(
+      /["']?cleanedText["']?\s*:\s*/gi,
+      ""
+    )
+    .replace(
+      /\bevidenceIndex\s*:\s*\d+\s*-?/gi,
+      ""
+    )
+    .replace(
+      /\bcleanedText\s*:\s*/gi,
+      ""
+    )
+    .replace(/^\s*["'{[]+\s*/gm, "")
+    .replace(/\s*["'}\]]+\s*,?\s*$/gm, "")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export async function generateDocumentAnswer(
   question: string,
   results: DocumentSearchResult[],
@@ -441,6 +471,11 @@ export async function generateDocumentAnswer(
 21. إذا كان السؤال يطلب استخراجًا، اعرض العناصر بوضوح.
 22. إذا كان السؤال يطلب تحليلًا أو مناقشة، اربط بين الأسباب والنتائج والسياقات.
 23. عند تحليل العلاقة بين الشخصيات والأحداث، اربط كل شخصية بالأحداث التي شاركت فيها أو أثرت فيها بحسب الأدلة المتاحة.
+24. الحقول evidenceIndex و cleanedText بيانات داخلية مخصصة للنظام فقط.
+25. ممنوع منعًا باتًا كتابة الكلمات evidenceIndex أو cleanedText داخل حقل answer.
+26. لا تعرض JSON أو أسماء الحقول البرمجية داخل answer.
+27. حقل answer يجب أن يحتوي فقط على الإجابة الأكاديمية الموجهة للباحث.
+28. استخدم evidenceIndex و cleanedText فقط داخل مصفوفة evidence المخصصة لهما.
         `.trim(),
 
         input: `
@@ -611,7 +646,9 @@ ${evidenceText}
 
     return {
       answer:
-        modelAnswer.answer,
+        cleanFinalAnswer(
+          modelAnswer.answer
+        ),
 
       /*
        * متروك مؤقتًا فقط حتى نعدّل الواجهة.

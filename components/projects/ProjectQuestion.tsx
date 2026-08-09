@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 import {
   BookOpen,
-  Check,
-  Clipboard,
   FileSearch,
   Files,
   LoaderCircle,
+  MessageSquarePlus,
   Search,
   ShieldCheck,
   Trash2,
@@ -18,20 +20,29 @@ type Props = {
   documentCount: number;
 };
 
-type ProjectEvidence = {
-  documentId: number;
-  documentName: string;
-  page: number | null;
-  text: string;
-  score?: number;
-};
-
 type AskResponse = {
   answer?: string;
-  evidence?: ProjectEvidence[];
+  conversationId?: number;
   confidence?: number;
   documentCount?: number;
   sourceDocumentCount?: number;
+  error?: string;
+};
+
+type StoredMessage = {
+  id: number;
+  role: string;
+  content: string;
+  confidence?: number | null;
+  sourceDocumentCount?: number | null;
+};
+
+type ConversationResponse = {
+  conversation?: {
+    id: number;
+    title?: string | null;
+    messages: StoredMessage[];
+  } | null;
   error?: string;
 };
 
@@ -39,28 +50,9 @@ type ConversationItem = {
   id: string;
   question: string;
   answer: string;
-  evidence: ProjectEvidence[];
   confidence: number;
-  searchedDocumentCount: number;
   sourceDocumentCount: number;
 };
-
-function cleanEvidence(
-  evidence?: ProjectEvidence[]
-): ProjectEvidence[] {
-  if (!Array.isArray(evidence)) {
-    return [];
-  }
-
-  return evidence.filter(
-    (item) =>
-      item &&
-      typeof item.documentId === "number" &&
-      typeof item.documentName === "string" &&
-      typeof item.text === "string" &&
-      item.text.trim().length > 0
-  );
-}
 
 function getConfidenceLabel(
   confidence: number
@@ -90,6 +82,56 @@ function confidenceClass(
   return "border-red-400/15 bg-red-400/[0.06] text-red-300";
 }
 
+function pairMessages(
+  messages: StoredMessage[]
+): ConversationItem[] {
+  const items:
+    ConversationItem[] = [];
+
+  let pendingQuestion:
+    StoredMessage | null = null;
+
+  for (const message of messages) {
+    if (
+      message.role === "user"
+    ) {
+      pendingQuestion =
+        message;
+
+      continue;
+    }
+
+    if (
+      message.role ===
+        "assistant" &&
+      pendingQuestion
+    ) {
+      items.push({
+        id:
+          `${pendingQuestion.id}-${message.id}`,
+
+        question:
+          pendingQuestion.content,
+
+        answer:
+          message.content,
+
+        confidence:
+          message.confidence ??
+          0,
+
+        sourceDocumentCount:
+          message.sourceDocumentCount ??
+          0,
+      });
+
+      pendingQuestion = null;
+    }
+  }
+
+  return items;
+}
+
 export default function ProjectQuestion({
   projectId,
   documentCount,
@@ -100,14 +142,107 @@ export default function ProjectQuestion({
   const [loading, setLoading] =
     useState(false);
 
+  const [
+    loadingConversation,
+    setLoadingConversation,
+  ] = useState(true);
+
   const [error, setError] =
     useState("");
 
-  const [conversation, setConversation] =
-    useState<ConversationItem[]>([]);
+  const [
+    conversationId,
+    setConversationId,
+  ] =
+    useState<number | null>(
+      null
+    );
 
-  const [copiedKey, setCopiedKey] =
-    useState<string | null>(null);
+  const [
+    conversation,
+    setConversation,
+  ] =
+    useState<
+      ConversationItem[]
+    >([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadConversation() {
+      try {
+        setLoadingConversation(
+          true
+        );
+
+        const response =
+          await fetch(
+            `/api/projects/${projectId}/conversations`,
+            {
+              cache:
+                "no-store",
+            }
+          );
+
+        const data:
+          ConversationResponse =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.error ||
+              "تعذر تحميل المحادثة."
+          );
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        if (
+          data.conversation
+        ) {
+          setConversationId(
+            data.conversation.id
+          );
+
+          setConversation(
+            pairMessages(
+              data.conversation.messages
+            )
+          );
+        } else {
+          setConversationId(
+            null
+          );
+
+          setConversation(
+            []
+          );
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setError(
+            error instanceof Error
+              ? error.message
+              : "تعذر تحميل المحادثة."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingConversation(
+            false
+          );
+        }
+      }
+    }
+
+    void loadConversation();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
 
   async function askProject() {
     const cleanQuestion =
@@ -122,27 +257,31 @@ export default function ProjectQuestion({
 
     setLoading(true);
     setError("");
-    setCopiedKey(null);
 
     try {
-      const response = await fetch(
-        `/api/projects/${projectId}/ask`,
-        {
-          method: "POST",
+      const response =
+        await fetch(
+          `/api/projects/${projectId}/ask`,
+          {
+            method: "POST",
 
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
 
-          body: JSON.stringify({
-            question:
-              cleanQuestion,
-          }),
-        }
-      );
+            body:
+              JSON.stringify({
+                question:
+                  cleanQuestion,
 
-      const data: AskResponse =
+                conversationId,
+              }),
+          }
+        );
+
+      const data:
+        AskResponse =
         await response.json();
 
       if (!response.ok) {
@@ -152,30 +291,35 @@ export default function ProjectQuestion({
         );
       }
 
+      if (
+        typeof data.conversationId ===
+        "number"
+      ) {
+        setConversationId(
+          data.conversationId
+        );
+      }
+
       setConversation(
         (current) => [
           ...current,
           {
-            id: `${Date.now()}-${Math.random()}`,
+            id:
+              `${Date.now()}-${Math.random()}`,
+
             question:
               cleanQuestion,
+
             answer:
               data.answer ||
               "لم يتم العثور على إجابة واضحة.",
-            evidence:
-              cleanEvidence(
-                data.evidence
-              ),
+
             confidence:
               typeof data.confidence ===
               "number"
                 ? data.confidence
                 : 0,
-            searchedDocumentCount:
-              typeof data.documentCount ===
-              "number"
-                ? data.documentCount
-                : documentCount,
+
             sourceDocumentCount:
               typeof data.sourceDocumentCount ===
               "number"
@@ -197,34 +341,88 @@ export default function ProjectQuestion({
     }
   }
 
-  async function copyCitation({
-    key,
-    evidence,
-  }: {
-    key: string;
-    evidence: ProjectEvidence;
-  }) {
-    const page =
-      evidence.page !== null
-        ? `، ص ${evidence.page}`
-        : "";
-
-    const text =
-      `${evidence.text}\n\nالمصدر: ${evidence.documentName}${page}`;
+  async function startNewConversation() {
+    if (loading) {
+      return;
+    }
 
     try {
-      await navigator.clipboard.writeText(
-        text
+      setError("");
+
+      const response =
+        await fetch(
+          `/api/projects/${projectId}/conversations`,
+          {
+            method: "POST",
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            "تعذر إنشاء محادثة جديدة."
+        );
+      }
+
+      setConversationId(
+        data.conversation.id
       );
 
-      setCopiedKey(key);
-
-      window.setTimeout(() => {
-        setCopiedKey(null);
-      }, 1800);
-    } catch {
+      setConversation([]);
+      setQuestion("");
+    } catch (error) {
       setError(
-        "تعذر نسخ الاستشهاد."
+        error instanceof Error
+          ? error.message
+          : "تعذر إنشاء محادثة جديدة."
+      );
+    }
+  }
+
+  async function deleteConversation() {
+    if (
+      !conversationId ||
+      loading
+    ) {
+      setConversation([]);
+      return;
+    }
+
+    try {
+      setError("");
+
+      const response =
+        await fetch(
+          `/api/projects/${projectId}/conversations?conversationId=${conversationId}`,
+          {
+            method: "DELETE",
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            "تعذر حذف المحادثة."
+        );
+      }
+
+      setConversationId(
+        null
+      );
+
+      setConversation([]);
+      setQuestion("");
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "تعذر حذف المحادثة."
       );
     }
   }
@@ -252,14 +450,44 @@ export default function ProjectQuestion({
               </h2>
 
               <p className="mt-1 max-w-3xl text-sm leading-7 text-slate-400">
-                يبحث أثر في جميع المستندات المكتملة، ويجمع المعلومات من أكثر من مصدر ثم يقدم تحليلًا تاريخيًا مستفيضًا مع الأدلة والصفحات.
+                يتذكر أثر محادثتك داخل المشروع حتى بعد إغلاق الصفحة، ويبحث في جميع المستندات المكتملة مع الاستشهادات داخل الإجابة.
               </p>
             </div>
           </div>
 
-          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-slate-400">
-            <FileSearch className="h-3.5 w-3.5" />
-            {documentCount} مستند في المشروع
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-slate-400">
+              <FileSearch className="h-3.5 w-3.5" />
+              {documentCount} مستند
+            </div>
+
+            <button
+              type="button"
+              onClick={
+                startNewConversation
+              }
+              disabled={loading}
+              className="inline-flex items-center gap-2 rounded-lg border border-cyan-400/15 bg-cyan-400/[0.05] px-3 py-2 text-xs font-semibold text-cyan-200 transition hover:bg-cyan-400/10 disabled:opacity-40"
+            >
+              <MessageSquarePlus className="h-3.5 w-3.5" />
+              محادثة جديدة
+            </button>
+
+            <button
+              type="button"
+              onClick={
+                deleteConversation
+              }
+              disabled={
+                loading ||
+                conversation.length ===
+                  0
+              }
+              className="inline-flex items-center gap-2 rounded-lg border border-red-400/15 bg-red-400/[0.05] px-3 py-2 text-xs font-semibold text-red-300 transition hover:bg-red-400/10 disabled:opacity-40"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              حذف المحادثة
+            </button>
           </div>
         </div>
       </div>
@@ -284,15 +512,18 @@ export default function ProjectQuestion({
                 void askProject();
               }
             }}
-            disabled={loading}
+            disabled={
+              loading ||
+              loadingConversation
+            }
             rows={4}
-            placeholder="مثال: حلل تطور الصراع السياسي بين الشخصيات الواردة في مصادر المشروع، وبيّن أسبابه ونتائجه."
+            placeholder="اكتب سؤالك، أو تابع سؤالًا سابقًا مثل: وما نتائج ذلك؟"
             className="academic-text w-full resize-y bg-transparent text-slate-100 outline-none placeholder:text-slate-600"
           />
 
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.06] pt-3">
             <p className="text-xs text-slate-600">
-              يبحث في كل المستندات المكتملة — Ctrl + Enter للإرسال
+              المحادثة محفوظة تلقائيًا داخل المشروع — Ctrl + Enter للإرسال
             </p>
 
             <button
@@ -302,6 +533,7 @@ export default function ProjectQuestion({
               }
               disabled={
                 loading ||
+                loadingConversation ||
                 !question.trim() ||
                 documentCount === 0
               }
@@ -311,6 +543,11 @@ export default function ProjectQuestion({
                 <>
                   <LoaderCircle className="h-4 w-4 animate-spin" />
                   جاري البحث والتحليل
+                </>
+              ) : loadingConversation ? (
+                <>
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                  جاري تحميل المحادثة
                 </>
               ) : (
                 <>
@@ -331,28 +568,9 @@ export default function ProjectQuestion({
         {conversation.length >
           0 && (
           <div className="mt-6 space-y-6">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="font-bold text-white">
-                نتائج البحث في المشروع
-              </h3>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setConversation(
-                    []
-                  );
-                  setCopiedKey(
-                    null
-                  );
-                  setError("");
-                }}
-                className="inline-flex items-center gap-2 rounded-lg border border-red-400/15 bg-red-400/[0.05] px-3 py-2 text-xs font-semibold text-red-300 transition hover:bg-red-400/10"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                مسح النتائج
-              </button>
-            </div>
+            <h3 className="font-bold text-white">
+              المحادثة البحثية
+            </h3>
 
             {conversation.map(
               (item, index) => (
@@ -414,96 +632,6 @@ export default function ProjectQuestion({
                         )}
                       </div>
                     </div>
-
-                    {item.evidence
-                      .length > 0 && (
-                      <div className="mt-6">
-                        <div className="mb-3 flex items-center justify-between gap-3">
-                          <h4 className="font-bold text-white">
-                            الأدلة والمصادر
-                          </h4>
-
-                          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs text-slate-500">
-                            {
-                              item
-                                .evidence
-                                .length
-                            }{" "}
-                            دليل
-                          </span>
-                        </div>
-
-                        <div className="space-y-3">
-                          {item.evidence.map(
-                            (
-                              evidence,
-                              evidenceIndex
-                            ) => {
-                              const key =
-                                `${item.id}-${evidenceIndex}`;
-
-                              return (
-                                <div
-                                  key={
-                                    key
-                                  }
-                                  className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-4"
-                                >
-                                  <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                                    <div className="flex flex-wrap gap-2">
-                                      <span className="rounded-lg border border-amber-300/10 bg-amber-300/[0.05] px-2.5 py-1 text-xs font-semibold text-amber-200">
-                                        {
-                                          evidence.documentName
-                                        }
-                                      </span>
-
-                                      <span className="rounded-lg border border-cyan-300/10 bg-cyan-300/[0.05] px-2.5 py-1 text-xs font-semibold text-cyan-200">
-                                        {evidence.page !==
-                                        null
-                                          ? `الصفحة ${evidence.page}`
-                                          : "صفحة غير محددة"}
-                                      </span>
-                                    </div>
-
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        copyCitation(
-                                          {
-                                            key,
-                                            evidence,
-                                          }
-                                        )
-                                      }
-                                      className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.06]"
-                                    >
-                                      {copiedKey ===
-                                      key ? (
-                                        <>
-                                          <Check className="h-3.5 w-3.5 text-emerald-300" />
-                                          تم النسخ
-                                        </>
-                                      ) : (
-                                        <>
-                                          <Clipboard className="h-3.5 w-3.5" />
-                                          نسخ الاستشهاد
-                                        </>
-                                      )}
-                                    </button>
-                                  </div>
-
-                                  <p className="text-sm leading-8 text-slate-300">
-                                    {
-                                      evidence.text
-                                    }
-                                  </p>
-                                </div>
-                              );
-                            }
-                          )}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </article>
               )

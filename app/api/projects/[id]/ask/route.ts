@@ -27,9 +27,16 @@ type ModelAnswer = {
   confidence?: number;
 };
 
+type ConversationHistoryItem = {
+  question: string;
+  answer: string;
+};
+
 const MAX_RESULTS_PER_DOCUMENT = 8;
 const MAX_PROJECT_EVIDENCE = 24;
 const MAX_EVIDENCE_CHARACTERS = 2200;
+const MAX_HISTORY_ITEMS = 6;
+const MAX_HISTORY_ANSWER_CHARACTERS = 3500;
 
 function cleanText(
   value: string,
@@ -44,7 +51,26 @@ function cleanText(
     return clean;
   }
 
-  return `${clean.slice(0, maxLength).trim()}...`;
+  return `${clean
+    .slice(0, maxLength)
+    .trim()}...`;
+}
+
+function cleanDocumentName(
+  value: string
+): string {
+  return value
+    .replace(
+      /\.(pdf|docx?|txt)$/i,
+      ""
+    )
+    .replace(/[-_]{2,}/g, " ")
+    .replace(
+      /^[\s\-_.]+|[\s\-_.]+$/g,
+      ""
+    )
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function removeDuplicateEvidence(
@@ -52,70 +78,103 @@ function removeDuplicateEvidence(
 ): ProjectEvidence[] {
   const seen = new Set<string>();
 
-  return evidence.filter((item) => {
-    const key = item.text
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 500)
-      .toLocaleLowerCase("ar");
+  return evidence.filter(
+    (item) => {
+      const key = item.text
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 500)
+        .toLocaleLowerCase(
+          "ar"
+        );
 
-    if (!key || seen.has(key)) {
-      return false;
+      if (
+        !key ||
+        seen.has(key)
+      ) {
+        return false;
+      }
+
+      seen.add(key);
+
+      return true;
     }
-
-    seen.add(key);
-    return true;
-  });
+  );
 }
 
 function diversifyEvidence(
   evidence: ProjectEvidence[]
 ): ProjectEvidence[] {
-  const sorted = [...evidence].sort(
-    (a, b) => b.score - a.score
+  const sorted = [
+    ...evidence,
+  ].sort(
+    (a, b) =>
+      b.score - a.score
   );
 
-  const selected: ProjectEvidence[] = [];
-  const perDocument = new Map<number, number>();
+  const selected:
+    ProjectEvidence[] = [];
 
-  // الجولة الأولى: نضمن تمثيل أكبر عدد ممكن من المستندات.
+  const perDocument =
+    new Map<number, number>();
+
   for (const item of sorted) {
-    if (selected.length >= MAX_PROJECT_EVIDENCE) {
+    if (
+      selected.length >=
+      MAX_PROJECT_EVIDENCE
+    ) {
       break;
     }
 
     const current =
-      perDocument.get(item.documentId) ?? 0;
+      perDocument.get(
+        item.documentId
+      ) ?? 0;
 
     if (current >= 2) {
       continue;
     }
 
     selected.push(item);
+
     perDocument.set(
       item.documentId,
       current + 1
     );
   }
 
-  // الجولة الثانية: نملأ الأماكن المتبقية بأقوى الأدلة.
-  if (selected.length < MAX_PROJECT_EVIDENCE) {
-    const selectedKeys = new Set(
-      selected.map(
-        (item) =>
-          `${item.documentId}:${item.page ?? "x"}:${item.text.slice(0, 180)}`
-      )
-    );
+  if (
+    selected.length <
+    MAX_PROJECT_EVIDENCE
+  ) {
+    const selectedKeys =
+      new Set(
+        selected.map(
+          (item) =>
+            `${item.documentId}:${item.page ?? "x"}:${item.text.slice(
+              0,
+              180
+            )}`
+        )
+      );
 
     for (const item of sorted) {
-      if (selected.length >= MAX_PROJECT_EVIDENCE) {
+      if (
+        selected.length >=
+        MAX_PROJECT_EVIDENCE
+      ) {
         break;
       }
 
       const key =
-        `${item.documentId}:${item.page ?? "x"}:${item.text.slice(0, 180)}`;
+        `${item.documentId}:${item.page ?? "x"}:${item.text.slice(
+          0,
+          180
+        )}`;
 
-      if (selectedKeys.has(key)) {
+      if (
+        selectedKeys.has(key)
+      ) {
         continue;
       }
 
@@ -131,44 +190,56 @@ function buildEvidenceText(
   evidence: ProjectEvidence[]
 ): string {
   return evidence
-    .map((item, index) => {
-      const pageLabel =
-        item.page !== null
-          ? `الصفحة ${item.page}`
-          : "صفحة غير محددة";
+    .map(
+      (item, index) => {
+        const pageLabel =
+          item.page !== null
+            ? `الصفحة ${item.page}`
+            : "صفحة غير محددة";
 
-      return [
-        `الدليل ${index + 1}`,
-        `المستند: ${item.documentName}`,
-        `الموضع: ${pageLabel}`,
-        cleanText(item.text),
-      ].join("\n");
-    })
-    .join("\n\n--------------------\n\n");
+        return [
+          `الدليل ${index + 1}`,
+          `المستند: ${item.documentName}`,
+          `الموضع: ${pageLabel}`,
+          cleanText(item.text),
+        ].join("\n");
+      }
+    )
+    .join(
+      "\n\n--------------------\n\n"
+    );
 }
 
 function extractResponseText(
   response: any
 ): string {
   if (
-    typeof response?.output_text === "string" &&
+    typeof response?.output_text ===
+      "string" &&
     response.output_text.trim()
   ) {
     return response.output_text.trim();
   }
 
-  const output = Array.isArray(response?.output)
-    ? response.output
-    : [];
+  const output =
+    Array.isArray(
+      response?.output
+    )
+      ? response.output
+      : [];
 
   for (const item of output) {
-    const content = Array.isArray(item?.content)
-      ? item.content
-      : [];
+    const content =
+      Array.isArray(
+        item?.content
+      )
+        ? item.content
+        : [];
 
     for (const part of content) {
       if (
-        typeof part?.text === "string" &&
+        typeof part?.text ===
+          "string" &&
         part.text.trim()
       ) {
         return part.text.trim();
@@ -182,23 +253,27 @@ function extractResponseText(
 function cleanModelAnswer(
   value: string
 ): string {
-  let answer = value.trim();
+  let answer =
+    value.trim();
 
-  // لو النموذج أعاد JSON كنص، نستخرج answer فقط.
   try {
-    const parsed = JSON.parse(answer) as ModelAnswer;
+    const parsed =
+      JSON.parse(
+        answer
+      ) as ModelAnswer;
 
     if (
       parsed &&
-      typeof parsed.answer === "string"
+      typeof parsed.answer ===
+        "string"
     ) {
-      answer = parsed.answer.trim();
+      answer =
+        parsed.answer.trim();
     }
   } catch {
-    // الرد نص عادي، لا مشكلة.
+    // الرد نص عادي.
   }
 
-  // حماية إضافية من ظهور أسماء حقول تقنية.
   return answer
     .replace(
       /\b(evidenceIndex|cleanedText|evidenceIndexes|JSON|Array|Object)\b\s*:?\s*/gi,
@@ -210,40 +285,217 @@ function cleanModelAnswer(
 function calculateConfidence(
   evidence: ProjectEvidence[]
 ): number {
-  if (evidence.length === 0) {
+  if (
+    evidence.length === 0
+  ) {
     return 0;
   }
 
-  const documentCount = new Set(
-    evidence.map((item) => item.documentId)
-  ).size;
-
-  const pageCount = new Set(
-    evidence
-      .filter((item) => item.page !== null)
-      .map(
+  const documentCount =
+    new Set(
+      evidence.map(
         (item) =>
-          `${item.documentId}:${item.page}`
+          item.documentId
       )
-  ).size;
+    ).size;
 
-  const topScore = Math.max(
-    ...evidence.map((item) => item.score),
-    1
-  );
+  const pageCount =
+    new Set(
+      evidence
+        .filter(
+          (item) =>
+            item.page !== null
+        )
+        .map(
+          (item) =>
+            `${item.documentId}:${item.page}`
+        )
+    ).size;
+
+  const topScore =
+    Math.max(
+      ...evidence.map(
+        (item) =>
+          item.score
+      ),
+      1
+    );
 
   return Math.min(
     98,
     Math.max(
       35,
       Math.round(
-        Math.min(topScore, 100) * 0.45 +
-          Math.min(evidence.length * 2.2, 24) +
-          Math.min(documentCount * 7, 21) +
-          Math.min(pageCount * 1.2, 12)
+        Math.min(
+          topScore,
+          100
+        ) *
+          0.45 +
+          Math.min(
+            evidence.length *
+              2.2,
+            24
+          ) +
+          Math.min(
+            documentCount * 7,
+            21
+          ) +
+          Math.min(
+            pageCount * 1.2,
+            12
+          )
       )
     )
   );
+}
+
+async function loadConversationHistory({
+  projectId,
+  conversationId,
+  userId,
+}: {
+  projectId: number;
+  conversationId: number | null;
+  userId: string;
+}) {
+  let conversation =
+    conversationId
+      ? await prisma.projectConversation.findFirst({
+          where: {
+            id: conversationId,
+            projectId,
+            documentId: null,
+
+            project: {
+              userId,
+            },
+          },
+
+          include: {
+            messages: {
+              orderBy: {
+                createdAt:
+                  "asc",
+              },
+            },
+          },
+        })
+      : null;
+
+  if (!conversation) {
+    conversation =
+      await prisma.projectConversation.create({
+        data: {
+          projectId,
+          documentId: null,
+          title:
+            "محادثة بحثية جديدة",
+        },
+
+        include: {
+          messages: true,
+        },
+      });
+  }
+
+  const pairedHistory:
+    ConversationHistoryItem[] = [];
+
+  let pendingQuestion:
+    string | null = null;
+
+  for (
+    const message of
+      conversation.messages
+  ) {
+    if (
+      message.role === "user"
+    ) {
+      pendingQuestion =
+        message.content;
+
+      continue;
+    }
+
+    if (
+      message.role ===
+        "assistant" &&
+      pendingQuestion
+    ) {
+      pairedHistory.push({
+        question:
+          pendingQuestion,
+
+        answer:
+          message.content.slice(
+            0,
+            MAX_HISTORY_ANSWER_CHARACTERS
+          ),
+      });
+
+      pendingQuestion = null;
+    }
+  }
+
+  return {
+    conversation,
+    history:
+      pairedHistory.slice(
+        -MAX_HISTORY_ITEMS
+      ),
+  };
+}
+
+function buildContextualSearchQuery({
+  question,
+  history,
+}: {
+  question: string;
+  history:
+    ConversationHistoryItem[];
+}): string {
+  if (
+    history.length === 0
+  ) {
+    return question;
+  }
+
+  const recentQuestions =
+    history
+      .slice(-3)
+      .map(
+        (item) =>
+          item.question
+      )
+      .join(" ");
+
+  return `${recentQuestions} ${question}`
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildConversationContext(
+  history:
+    ConversationHistoryItem[]
+): string {
+  if (
+    history.length === 0
+  ) {
+    return "لا توجد أسئلة سابقة في هذه المحادثة.";
+  }
+
+  return history
+    .map(
+      (item, index) =>
+        [
+          `المداخلة السابقة ${index + 1}`,
+          `سؤال الباحث: ${item.question}`,
+          `إجابة أثر السابقة: ${item.answer}`,
+        ].join("\n")
+    )
+    .join(
+      "\n\n--------------------\n\n"
+    );
 }
 
 export async function POST(
@@ -257,12 +509,16 @@ export async function POST(
   }
 ) {
   try {
-    const session = await auth();
+    const session =
+      await auth();
 
-    if (!session?.user?.id) {
+    if (
+      !session?.user?.id
+    ) {
       return NextResponse.json(
         {
-          error: "يجب تسجيل الدخول أولًا.",
+          error:
+            "يجب تسجيل الدخول أولًا.",
         },
         {
           status: 401,
@@ -270,16 +526,22 @@ export async function POST(
       );
     }
 
-    const { id } = await params;
-    const projectId = Number(id);
+    const { id } =
+      await params;
+
+    const projectId =
+      Number(id);
 
     if (
-      !Number.isInteger(projectId) ||
+      !Number.isInteger(
+        projectId
+      ) ||
       projectId <= 0
     ) {
       return NextResponse.json(
         {
-          error: "رقم المشروع غير صحيح.",
+          error:
+            "رقم المشروع غير صحيح.",
         },
         {
           status: 400,
@@ -287,16 +549,34 @@ export async function POST(
       );
     }
 
-    const body = await request.json();
+    const body =
+      await request.json();
+
     const question =
-      typeof body?.question === "string"
+      typeof body?.question ===
+        "string"
         ? body.question.trim()
         : "";
+
+    const requestedConversationId =
+      Number.isInteger(
+        Number(
+          body?.conversationId
+        )
+      ) &&
+      Number(
+        body?.conversationId
+      ) > 0
+        ? Number(
+            body.conversationId
+          )
+        : null;
 
     if (!question) {
       return NextResponse.json(
         {
-          error: "اكتب سؤالًا صالحًا عن المشروع.",
+          error:
+            "اكتب سؤالًا صالحًا عن المشروع.",
         },
         {
           status: 400,
@@ -308,7 +588,8 @@ export async function POST(
       await prisma.project.findFirst({
         where: {
           id: projectId,
-          userId: session.user.id,
+          userId:
+            session.user.id,
         },
 
         select: {
@@ -317,19 +598,19 @@ export async function POST(
 
           documents: {
             where: {
-              processingStatus: "COMPLETED",
+              processingStatus:
+                "COMPLETED",
             },
 
             orderBy: {
-              createdAt: "asc",
+              createdAt:
+                "asc",
             },
 
             select: {
               id: true,
               name: true,
               content: true,
-              processedPages: true,
-              totalPages: true,
             },
           },
         },
@@ -347,13 +628,41 @@ export async function POST(
       );
     }
 
+    const {
+      conversation,
+      history,
+    } =
+      await loadConversationHistory({
+        projectId,
+        conversationId:
+          requestedConversationId,
+        userId:
+          session.user.id,
+      });
+
+    const contextualSearchQuery =
+      buildContextualSearchQuery({
+        question,
+        history,
+      });
+
+    const conversationContext =
+      buildConversationContext(
+        history
+      );
+
     const searchableDocuments =
       project.documents.filter(
         (document) =>
-          Boolean(document.content?.trim())
+          Boolean(
+            document.content?.trim()
+          )
       );
 
-    if (searchableDocuments.length === 0) {
+    if (
+      searchableDocuments.length ===
+      0
+    ) {
       return NextResponse.json(
         {
           error:
@@ -365,60 +674,93 @@ export async function POST(
       );
     }
 
-    const allEvidence: ProjectEvidence[] = [];
+    const allEvidence:
+      ProjectEvidence[] = [];
 
-    for (const document of searchableDocuments) {
-      const results: DocumentSearchResult[] =
+    for (
+      const document of
+        searchableDocuments
+    ) {
+      const results:
+        DocumentSearchResult[] =
         searchDocument(
-          document.content ?? "",
-          question,
+          document.content ??
+            "",
+          contextualSearchQuery,
           {
             maxResults:
               MAX_RESULTS_PER_DOCUMENT,
-            maxResultsPerPage: 2,
+            maxResultsPerPage:
+              2,
           }
         );
 
-      for (const result of results) {
+      for (
+        const result of results
+      ) {
         allEvidence.push({
-          documentId: document.id,
+          documentId:
+            document.id,
+
           documentName:
-            document.name ||
+            cleanDocumentName(
+              document.name ||
+                `مستند رقم ${document.id}`
+            ) ||
             `مستند رقم ${document.id}`,
-          text: result.text,
-          page: result.page,
-          score: result.score,
+
+          text:
+            result.text,
+
+          page:
+            result.page,
+
+          score:
+            result.score,
         });
       }
     }
 
-    const evidence = diversifyEvidence(
-      removeDuplicateEvidence(allEvidence)
-    );
+    const evidence =
+      diversifyEvidence(
+        removeDuplicateEvidence(
+          allEvidence
+        )
+      );
 
-    if (evidence.length === 0) {
+    if (
+      evidence.length === 0
+    ) {
       return NextResponse.json({
         answer:
           "لم يتم العثور على أدلة واضحة مرتبطة بالسؤال داخل مستندات المشروع.",
-        evidence: [],
+        conversationId:
+          conversation.id,
         confidence: 0,
         documentCount:
           searchableDocuments.length,
-        sourceDocumentCount: 0,
+        sourceDocumentCount:
+          0,
       });
     }
 
     const evidenceText =
-      buildEvidenceText(evidence);
+      buildEvidenceText(
+        evidence
+      );
 
-    const client = getOpenAIClient();
-    const model = getOpenAIModel();
+    const client =
+      getOpenAIClient();
+
+    const model =
+      getOpenAIModel();
 
     const response =
       await client.responses.create({
         model,
         store: false,
-        max_output_tokens: 7000,
+        max_output_tokens:
+          7000,
 
         reasoning: {
           effort: "low",
@@ -433,42 +775,41 @@ export async function POST(
 
 1. اكتب بالعربية الفصحى الواضحة وبأسلوب أكاديمي رصين يشبه أسلوب الدراسات التاريخية والرسائل العلمية.
 2. احتفظ بالاستفاضة. لا تختصر الإجابة اختصارًا مخلًا. إذا كانت الأدلة تسمح بتحليل طويل فاكتب تحليلًا طويلًا ومفصلًا.
-3. نظّم الإجابة بعناوين فرعية مناسبة لطبيعة السؤال، مثل:
-   - تمهيد أو خلفية تاريخية
-   - تطور الأحداث
-   - الشخصيات والقوى الفاعلة
-   - الأسباب والدوافع
-   - النتائج والآثار
-   - قراءة تحليلية
-   - استنتاج
-   لا تُجبر كل هذه العناوين إن لم تكن مناسبة للسؤال.
+3. نظّم الإجابة بعناوين فرعية مناسبة لطبيعة السؤال.
 4. اجمع المعلومات المتفرقة بين المستندات وقارن بينها عندما يفيد ذلك.
 5. إذا اتفقت عدة مستندات على فكرة، بيّن أن الأدلة تتضافر عليها.
-6. إذا ظهر اختلاف أو تعارض بين المستندات، اذكره بوضوح ولا تحاول إخفاءه.
-7. لا تنسب إلى المصادر معلومة لا تدعمها الأدلة المرفقة.
-8. يجوز لك الاستنتاج والتحليل، لكن ميّز الاستنتاج عن المعلومة الصريحة في المصادر.
-9. لا تكتب أي أسماء حقول تقنية أو برمجية إطلاقًا، ومنها:
-   evidenceIndex
-   evidenceIndexes
-   cleanedText
-   JSON
-   Array
-   Object
-10. لا تعرض البيانات في صورة JSON ولا تشرح آلية عمل النظام.
-11. لا تنسخ الأدلة حرفيًا داخل الإجابة إلا عند الحاجة إلى اقتباس قصير.
-12. لا تضع قائمة الأدلة الخام داخل نص الإجابة؛ الواجهة ستعرض الأدلة والمصادر أسفل الإجابة بصورة مستقلة.
-13. يمكنك الإشارة طبيعيًا إلى المصدر داخل التحليل عند الحاجة بعبارات مثل:
-    "وتشير إحدى وثائق المشروع..."
-    أو
-    "وتتفق عدة مصادر داخل المشروع..."
-14. إذا كانت الأدلة غير كافية للإجابة عن جانب ما، صرّح بذلك بوضوح.
-15. اختم باستنتاج أكاديمي عندما يكون السؤال تحليليًا.
+6. إذا ظهر اختلاف أو تعارض بين المستندات، اذكره بوضوح.
+7. لا تنسب إلى المصادر معلومة لا تدعمها الأدلة.
+8. يجوز لك الاستنتاج والتحليل، لكن ميّز الاستنتاج عن المعلومة الصريحة.
+9. لا تكتب أسماء حقول تقنية أو JSON أو Array أو Object.
+10. لا تشرح آلية عمل النظام.
+11. لا تنسخ الأدلة حرفيًا إلا عند الحاجة إلى اقتباس قصير.
+12. لا تضع قائمة مستقلة بالأدلة أو المصادر في نهاية الإجابة؛ اكتفِ بالاستشهادات داخل متن الإجابة.
+13. أضف الاستشهاد بعد الجملة أو الفقرة التي تعتمد على دليل محدد.
+14. صيغة الاستشهاد: (اسم المستند، ص رقم الصفحة).
+15. استخدم اسم المستند ورقم الصفحة كما وردا في الأدلة فقط.
+16. إذا لم يوجد رقم صفحة فاستخدم: (اسم المستند).
+17. يجوز جمع أكثر من استشهاد في نهاية الفقرة.
+18. لا تضع استشهادًا بعد كل جملة بصورة آلية.
+19. الاستشهادات لا تقلل من طول الإجابة أو عمق التحليل.
+20. ميّز القراءة التحليلية عن المعلومة الصريحة.
+21. إذا كانت الأدلة غير كافية لجانب ما، صرّح بذلك.
+22. اختم باستنتاج أكاديمي عندما يكون السؤال تحليليًا.
+23. لا تستخدم أرقام الأدلة كاستشهاد ظاهر.
+24. استخدم سياق المحادثة السابقة لفهم الضمائر والأسئلة المتابعة.
+25. سياق المحادثة يساعد في الفهم فقط وليس مصدرًا تاريخيًا مستقلًا.
+26. إذا تعارضت إجابة سابقة مع الأدلة الحالية، قدّم الأدلة الحالية وصحح المسار.
+27. لا تقل "كما قلت سابقًا" آليًا؛ استخدم السياق طبيعيًا.
         `.trim(),
 
         input: [
           `اسم المشروع: ${project.title}`,
           "",
-          `سؤال الباحث: ${question}`,
+          "سياق المحادثة السابقة:",
+          "",
+          conversationContext,
+          "",
+          `سؤال الباحث الحالي: ${question}`,
           "",
           "الأدلة المستخرجة من مستندات المشروع:",
           "",
@@ -477,10 +818,14 @@ export async function POST(
       });
 
     const rawAnswer =
-      extractResponseText(response);
+      extractResponseText(
+        response
+      );
 
     const answer =
-      cleanModelAnswer(rawAnswer);
+      cleanModelAnswer(
+        rawAnswer
+      );
 
     if (!answer) {
       throw new Error(
@@ -491,40 +836,87 @@ export async function POST(
     const sourceDocumentCount =
       new Set(
         evidence.map(
-          (item) => item.documentId
+          (item) =>
+            item.documentId
         )
       ).size;
 
+    const confidence =
+      calculateConfidence(
+        evidence
+      );
+
+    const currentMessageCount =
+      await prisma.projectMessage.count({
+        where: {
+          conversationId:
+            conversation.id,
+        },
+      });
+
+    const shouldSetTitle =
+      currentMessageCount === 0;
+
+    await prisma.$transaction([
+      prisma.projectMessage.create({
+        data: {
+          conversationId:
+            conversation.id,
+
+          role: "user",
+          content:
+            question,
+        },
+      }),
+
+      prisma.projectMessage.create({
+        data: {
+          conversationId:
+            conversation.id,
+
+          role:
+            "assistant",
+
+          content:
+            answer,
+
+          confidence,
+
+          sourceDocumentCount,
+        },
+      }),
+
+      prisma.projectConversation.update({
+        where: {
+          id:
+            conversation.id,
+        },
+
+        data: {
+          updatedAt:
+            new Date(),
+
+          ...(shouldSetTitle
+            ? {
+                title:
+                  question
+                    .slice(
+                      0,
+                      80
+                    ),
+              }
+            : {}),
+        },
+      }),
+    ]);
+
     return NextResponse.json({
       answer,
-
-      evidence: evidence.map(
-        (item) => ({
-          documentId:
-            item.documentId,
-
-          documentName:
-            item.documentName,
-
-          page: item.page,
-
-          text: cleanText(
-            item.text,
-            1200
-          ),
-
-          score: item.score,
-        })
-      ),
-
-      confidence:
-        calculateConfidence(
-          evidence
-        ),
-
+      conversationId:
+        conversation.id,
+      confidence,
       documentCount:
         searchableDocuments.length,
-
       sourceDocumentCount,
     });
   } catch (error) {

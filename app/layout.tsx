@@ -35,10 +35,11 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="ar"
-      dir="rtl"
-      className={`${ibmPlexArabic.variable} ${alexandria.variable} h-full antialiased`}
-    >
+  lang="ar"
+  dir="rtl"
+  data-scroll-behavior="smooth"
+  className={`${ibmPlexArabic.variable} ${alexandria.variable} h-full antialiased`}
+>
       <body className="min-h-full">
         {children}
       </body>
