@@ -9,25 +9,46 @@ import { checkSubscription } from "@/lib/subscription/checkSubscription";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024;
-class SubscriptionLimitError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "SubscriptionLimitError";
-  }
+const FREE_MAX_FILE_SIZE =
+  50 * 1024 * 1024;
+
+const PAID_MAX_FILE_SIZE =
+  150 * 1024 * 1024;
+
+function getMaxFileSize(
+  plan: "FREE" | "PRO" | "ENTERPRISE"
+): number {
+  return plan === "FREE"
+    ? FREE_MAX_FILE_SIZE
+    : PAID_MAX_FILE_SIZE;
 }
 
-export async function POST(request: Request) {
-  let savedFilePath: string | null = null;
+function getMaxFileSizeLabel(
+  plan: "FREE" | "PRO" | "ENTERPRISE"
+): string {
+  return plan === "FREE"
+    ? "50 ميجابايت"
+    : "150 ميجابايت";
+}
+
+export async function POST(
+  request: Request
+) {
+  let savedFilePath:
+    | string
+    | null = null;
 
   try {
-    // التأكد من تسجيل الدخول
-    const session = await auth();
+    const session =
+      await auth();
 
-    if (!session?.user) {
+    if (
+      !session?.user?.id
+    ) {
       return NextResponse.json(
         {
-          error: "يجب تسجيل الدخول أولًا لرفع المستندات",
+          error:
+            "يجب تسجيل الدخول أولًا لرفع المستندات",
         },
         {
           status: 401,
@@ -35,35 +56,38 @@ export async function POST(request: Request) {
       );
     }
 
-    const userId = (session.user as { id: string }).id;
+    const userId =
+      session.user.id;
 
-    if (!userId) {
-      return NextResponse.json(
-        {
-          error: "تعذر تحديد المستخدم الحالي",
-        },
-        {
-          status: 401,
-        }
+    const formData =
+      await request.formData();
+
+    const file =
+      formData.get("file");
+
+    const projectIdValue =
+      formData.get(
+        "projectId"
       );
-    }
 
-    const formData = await request.formData();
-
-    const file = formData.get("file");
-    const projectIdValue = formData.get("projectId");
-
-    const projectId = Number(projectIdValue);
+    const projectId =
+      Number(
+        projectIdValue
+      );
 
     if (
       !file ||
-      typeof file === "string" ||
-      !Number.isInteger(projectId) ||
+      typeof file ===
+        "string" ||
+      !Number.isInteger(
+        projectId
+      ) ||
       projectId <= 0
     ) {
       return NextResponse.json(
         {
-          error: "الملف أو رقم المشروع غير صحيح",
+          error:
+            "الملف أو رقم المشروع غير صحيح",
         },
         {
           status: 400,
@@ -71,21 +95,43 @@ export async function POST(request: Request) {
       );
     }
 
-    const lowerFileName = file.name.toLowerCase();
+    if (file.size <= 0) {
+      return NextResponse.json(
+        {
+          error:
+            "الملف المرفوع فارغ",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const lowerFileName =
+      file.name.toLowerCase();
 
     const isPdf =
-      file.type === "application/pdf" ||
-      lowerFileName.endsWith(".pdf");
+      file.type ===
+        "application/pdf" ||
+      lowerFileName.endsWith(
+        ".pdf"
+      );
 
     const isDocx =
       file.type ===
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-      lowerFileName.endsWith(".docx");
+      lowerFileName.endsWith(
+        ".docx"
+      );
 
-    if (!isPdf && !isDocx) {
+    if (
+      !isPdf &&
+      !isDocx
+    ) {
       return NextResponse.json(
         {
-          error: "يتم دعم ملفات PDF أو Word (.docx) فقط",
+          error:
+            "يتم دعم ملفات PDF أو Word (.docx) فقط",
         },
         {
           status: 400,
@@ -93,27 +139,16 @@ export async function POST(request: Request) {
       );
     }
 
-    if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        {
-          error: "حجم الملف أكبر من الحد المسموح وهو 50 ميجابايت",
+    const project =
+      await prisma.project.findFirst({
+        where: {
+          id: projectId,
+          userId,
         },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    // التأكد أن المشروع موجود ومملوك للمستخدم الحالي
-    const project = await prisma.project.findFirst({
-      where: {
-        id: projectId,
-        userId,
-      },
-      select: {
-        id: true,
-      },
-    });
+        select: {
+          id: true,
+        },
+      });
 
     if (!project) {
       return NextResponse.json(
@@ -127,18 +162,24 @@ export async function POST(request: Request) {
       );
     }
 
-    // فحص الاشتراك والحد الشهري والأرصدة الإضافية
-    const subscriptionCheck = await checkSubscription(userId);
+    const subscriptionCheck =
+      await checkSubscription(
+        userId
+      );
 
-    if (!subscriptionCheck.allowed) {
+    if (
+      !subscriptionCheck.allowed
+    ) {
       return NextResponse.json(
         {
           error:
             subscriptionCheck.message ??
             "لا يمكن رفع مستند جديد حاليًا",
-          reason: subscriptionCheck.reason,
+          reason:
+            subscriptionCheck.reason,
           subscription:
-            subscriptionCheck.subscription ?? null,
+            subscriptionCheck.subscription ??
+            null,
         },
         {
           status: 429,
@@ -146,196 +187,156 @@ export async function POST(request: Request) {
       );
     }
 
-    const uploadDir = path.join(
-      process.cwd(),
-      "public",
-      "uploads"
-    );
+    const subscription =
+      subscriptionCheck.subscription;
 
-    await fs.mkdir(uploadDir, {
-      recursive: true,
-    });
+    const maxFileSize =
+      getMaxFileSize(
+        subscription.plan
+      );
 
-    const safeOriginalName = file.name.replace(
-      /[^\w.\-\u0600-\u06FF]+/gu,
-      "-"
-    );
-
-    const safeName = `${Date.now()}-${safeOriginalName}`;
-
-    const filePath = path.join(uploadDir, safeName);
-
-    const fileBuffer = Buffer.from(
-      await file.arrayBuffer()
-    );
-
-    await fs.writeFile(filePath, fileBuffer);
-
-    savedFilePath = filePath;
-
-    // إنشاء المستند والخصم من الحد الشهري أو الرصيد الإضافي
-    const result = await prisma.$transaction(
-      async (transaction) => {
-        const currentSubscription =
-          await transaction.subscription.findUnique({
-            where: {
-              userId,
-            },
-          });
-
-        if (!currentSubscription) {
-          throw new Error(
-            "لا يوجد اشتراك مرتبط بهذا الحساب."
-          );
+    if (
+      file.size >
+      maxFileSize
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            `حجم الملف أكبر من الحد المسموح لباقة ${subscription.plan}. الحد الحالي هو ${getMaxFileSizeLabel(
+              subscription.plan
+            )}.`,
+          reason:
+            "FILE_SIZE_LIMIT_REACHED",
+          maxFileSizeBytes:
+            maxFileSize,
+        },
+        {
+          status: 400,
         }
+      );
+    }
 
-        const now = new Date();
+    const uploadDir =
+      path.join(
+        process.cwd(),
+        "public",
+        "uploads"
+      );
 
-        if (
-          currentSubscription.expiresAt &&
-          currentSubscription.expiresAt <= now
-        ) {
-          throw new Error(
-            "انتهت صلاحية الاشتراك. يرجى تجديد الاشتراك للمتابعة."
-          );
-        }
-
-        const monthlyLimitReached =
-          currentSubscription.usedThisMonth >=
-          currentSubscription.monthlyLimit;
-
-        let updatedSubscription;
-        let usageSource: "MONTHLY" | "EXTRA_CREDIT";
-
-        if (!monthlyLimitReached) {
-          // الخصم من الحد الشهري
-          updatedSubscription =
-            await transaction.subscription.update({
-              where: {
-                userId,
-              },
-              data: {
-                usedThisMonth: {
-                  increment: 1,
-                },
-              },
-            });
-
-          usageSource = "MONTHLY";
-        } else if (currentSubscription.extraCredits > 0) {
-          // الخصم من الأرصدة الإضافية
-          // Do not rely solely on the value read above: another upload may
-          // consume the last credit before this transaction reaches here.
-          const creditDeduction =
-            await transaction.subscription.updateMany({
-              where: {
-                userId,
-                extraCredits: {
-                  gt: 0,
-                },
-              },
-              data: {
-                extraCredits: {
-                  decrement: 1,
-                },
-              },
-            });
-
-          if (creditDeduction.count !== 1) {
-            throw new Error(
-              "تم استهلاك الرصيد الإضافي بواسطة عملية رفع أخرى. يُرجى المحاولة مرة أخرى."
-            );
-          }
-
-          updatedSubscription =
-            await transaction.subscription.findUniqueOrThrow({
-              where: {
-                userId,
-              },
-            });
-
-          usageSource = "EXTRA_CREDIT";
-        } else {
-          throw new SubscriptionLimitError(
-  "لقد استهلكت الحد الشهري والأرصدة الإضافية. يرجى شراء رصيد إضافي أو ترقية خطتك."
-);
-        }
-
-        const document =
-          await transaction.document.create({
-            data: {
-              name: file.name,
-              url: `/uploads/${safeName}`,
-              content: "",
-              type: isPdf ? "pdf" : "docx",
-              projectId,
-              processingStatus: "QUEUED",
-              processedPages: 0,
-              totalPages: 0,
-              processingError: null,
-            },
-          });
-
-        return {
-          document,
-          updatedSubscription,
-          usageSource,
-        };
+    await fs.mkdir(
+      uploadDir,
+      {
+        recursive: true,
       }
     );
 
+    const safeOriginalName =
+      file.name
+        .replace(
+          /[^\w.\-\u0600-\u06FF]+/gu,
+          "-"
+        )
+        .replace(
+          /^-+|-+$/g,
+          ""
+        ) ||
+      "document";
+
+    const safeName =
+      `${Date.now()}-${safeOriginalName}`;
+
+    const filePath =
+      path.join(
+        uploadDir,
+        safeName
+      );
+
+    const fileBuffer =
+      Buffer.from(
+        await file.arrayBuffer()
+      );
+
+    await fs.writeFile(
+      filePath,
+      fileBuffer
+    );
+
+    savedFilePath =
+      filePath;
+
+    const document =
+      await prisma.document.create({
+        data: {
+          name:
+            file.name,
+          url:
+            `/uploads/${safeName}`,
+          content: "",
+          type:
+            isPdf
+              ? "pdf"
+              : "docx",
+          projectId,
+          processingStatus:
+            "QUEUED",
+          processedPages: 0,
+          totalPages: 0,
+          billedPages: 0,
+          usageSource: null,
+          usageChargedAt:
+            null,
+          processingError:
+            null,
+        },
+      });
+
     savedFilePath = null;
-
-    const remainingFiles = Math.max(
-      result.updatedSubscription.monthlyLimit -
-        result.updatedSubscription.usedThisMonth,
-      0
-    );
-
-    const totalRemainingFiles =
-      remainingFiles +
-      result.updatedSubscription.extraCredits;
-
-    console.log(
-      "========== SUBSCRIPTION UPDATED =========="
-    );
-    console.log("User ID:", userId);
-    console.log(
-      "Used This Month:",
-      result.updatedSubscription.usedThisMonth
-    );
-    console.log(
-      "Extra Credits:",
-      result.updatedSubscription.extraCredits
-    );
-    console.log("Remaining Monthly Files:", remainingFiles);
-    console.log(
-      "Total Remaining Files:",
-      totalRemainingFiles
-    );
-    console.log("Usage Source:", result.usageSource);
-    console.log(
-      "=========================================="
-    );
 
     return NextResponse.json(
       {
         message:
-          result.usageSource === "MONTHLY"
-            ? "تم رفع المستند وخصمه من الحد الشهري وبدأت معالجته"
-            : "تم رفع المستند وخصمه من الرصيد الإضافي وبدأت معالجته",
-        document: result.document,
+          "تم رفع المستند بنجاح. سيتم حساب عدد الصفحات والتحقق من رصيد المعالجة قبل بدء التحليل.",
+
+        document,
+
+        limits: {
+          maxFileSizeBytes:
+            maxFileSize,
+          maxFileSizeLabel:
+            getMaxFileSizeLabel(
+              subscription.plan
+            ),
+        },
+
         subscription: {
-          plan: result.updatedSubscription.plan,
-          monthlyLimit:
-            result.updatedSubscription.monthlyLimit,
-          usedThisMonth:
-            result.updatedSubscription.usedThisMonth,
-          remainingFiles,
-          extraCredits:
-            result.updatedSubscription.extraCredits,
-          totalRemainingFiles,
-          usageSource: result.usageSource,
+          plan:
+            subscription.plan,
+          pageLimit:
+            subscription.pageLimit,
+          usedPages:
+            subscription.usedPages,
+          remainingPages:
+            subscription.remainingPages,
+          extraPages:
+            subscription.extraPages,
+          totalRemainingPages:
+            subscription.totalRemainingPages,
+          questionLimit:
+            subscription.questionLimit,
+          usedQuestions:
+            subscription.usedQuestions,
+          remainingQuestions:
+            subscription.remainingQuestions,
+          extraQuestions:
+            subscription.extraQuestions,
+          totalRemainingQuestions:
+            subscription.totalRemainingQuestions,
+        },
+
+        usage: {
+          charged: false,
+          billedPages: 0,
+          usageSource: null,
         },
       },
       {
@@ -343,30 +344,35 @@ export async function POST(request: Request) {
       }
     );
   } catch (error) {
-    // حذف الملف إذا فشل الحفظ في قاعدة البيانات
     if (savedFilePath) {
       try {
-        await fs.unlink(savedFilePath);
-      } catch (deleteError) {
-        if (error instanceof SubscriptionLimitError) {
-  return NextResponse.json(
-    {
-      error: error.message,
-      reason: "MONTHLY_LIMIT_REACHED",
-    },
-    {
-      status: 429,
-    }
-  );
-}
-        console.error(
-          "Failed to delete uploaded file:",
-          deleteError
+        await fs.unlink(
+          savedFilePath
         );
+      } catch (
+        deleteError
+      ) {
+        const fileError =
+          deleteError as {
+            code?: string;
+          };
+
+        if (
+          fileError.code !==
+          "ENOENT"
+        ) {
+          console.error(
+            "Failed to delete uploaded file:",
+            deleteError
+          );
+        }
       }
     }
 
-    console.error("Document upload error:", error);
+    console.error(
+      "Document upload error:",
+      error
+    );
 
     return NextResponse.json(
       {

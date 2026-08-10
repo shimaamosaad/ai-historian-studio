@@ -51,7 +51,7 @@ export default function CTA() {
 
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
-              href="/projects/new"
+              href="/register"
               className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#d8a53b] to-[#f5d27a] px-7 py-4 font-black text-slate-950 shadow-[0_14px_35px_rgba(216,165,59,.22)] transition hover:-translate-y-1 hover:brightness-110 sm:w-auto"
             >
               ابدأ مجانًا

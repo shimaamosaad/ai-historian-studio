@@ -1,5 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
+
+import { auth } from "@/auth";
+import LogoutButton from "@/components/home/LogoutButton";
 import {
   ArrowLeft,
   Bell,
@@ -44,7 +47,9 @@ const graphNodes = [
   { label: "الصليبيون", x: "51%", y: "15%" },
 ];
 
-export default function Hero() {
+export default async function Hero() {
+  const session = await auth();
+
   return (
     <section
       dir="rtl"
@@ -148,13 +153,42 @@ export default function Hero() {
             <Bell className="h-5 w-5" />
           </button>
 
-          <Link
-            href="/projects"
-            className="hidden shrink-0 items-center gap-2 rounded-xl border border-blue-400/45 bg-blue-500/[0.07] px-5 py-3 text-sm font-black text-blue-200 transition hover:bg-blue-500/12 md:inline-flex"
-          >
-            <Sparkles className="h-4 w-4" />
-            مشاريعي
-          </Link>
+          {session?.user ? (
+            <div className="hidden shrink-0 items-center gap-2 md:flex">
+              <Link
+                href="/projects"
+                className="inline-flex items-center gap-2 rounded-xl border border-blue-400/45 bg-blue-500/[0.07] px-4 py-3 text-sm font-black text-blue-200 transition hover:bg-blue-500/12"
+              >
+                <Sparkles className="h-4 w-4" />
+                مشاريعي
+              </Link>
+
+              <Link
+                href="/subscription"
+                className="inline-flex items-center gap-2 rounded-xl border border-amber-400/35 bg-amber-400/[0.07] px-4 py-3 text-sm font-black text-amber-200 transition hover:bg-amber-400/[0.12]"
+              >
+                اشتراكي
+              </Link>
+
+              <LogoutButton />
+            </div>
+          ) : (
+            <div className="hidden shrink-0 items-center gap-2 md:flex">
+              <Link
+                href="/login"
+                className="rounded-xl border border-blue-400/35 bg-blue-500/[0.07] px-4 py-3 text-sm font-black text-blue-200 transition hover:bg-blue-500/[0.12]"
+              >
+                تسجيل الدخول
+              </Link>
+
+              <Link
+                href="/register"
+                className="rounded-xl border border-amber-200/60 bg-gradient-to-l from-[#ffe08a] via-[#e9a62f] to-[#bd6c0d] px-4 py-3 text-sm font-black text-[#1c1204] transition hover:-translate-y-0.5"
+              >
+                ابدأ مجانًا
+              </Link>
+            </div>
+          )}
         </div>
       </header>
 

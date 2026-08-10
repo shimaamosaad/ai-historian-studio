@@ -16,6 +16,7 @@ import {
 } from "unpdf";
 import * as mammoth from "mammoth";
 
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { processHierarchicalAnalysis } from "@/lib/ai/history/processHierarchicalAnalysis";
 import { normalizeArabicText } from "@/lib/ocr/normalizeArabicText";
@@ -27,6 +28,259 @@ const PAGES_PER_REQUEST = 10;
 const MIN_DIRECT_TEXT_QUALITY = 60;
 const MIN_FINAL_TEXT_QUALITY = 45;
 const MAX_PRIVATE_USE_RATIO = 0.02;
+const MIN_DIRECT_PAGE_CHARACTERS = 80;
+const MIN_DIRECT_PAGE_QUALITY = 40;
+const MIN_OCR_PAGE_CHARACTERS = 40;
+
+const WORD_CHARACTERS_PER_BILLING_PAGE = 2500;
+
+class PageLimitError extends Error {
+  requiredPages: number;
+  availablePages: number;
+
+  constructor(
+    message: string,
+    requiredPages: number,
+    availablePages: number
+  ) {
+    super(message);
+    this.name = "PageLimitError";
+    this.requiredPages = requiredPages;
+    this.availablePages = availablePages;
+  }
+}
+
+function estimateWordBillingPages(
+  text: string
+): number {
+  const normalized = text
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) {
+    return 1;
+  }
+
+  return Math.max(
+    1,
+    Math.ceil(
+      normalized.length /
+        WORD_CHARACTERS_PER_BILLING_PAGE
+    )
+  );
+}
+
+async function chargeDocumentPages({
+  documentId,
+  userId,
+  requiredPages,
+}: {
+  documentId: number;
+  userId: string;
+  requiredPages: number;
+}) {
+  if (
+    !Number.isInteger(requiredPages) ||
+    requiredPages <= 0
+  ) {
+    throw new Error(
+      "تعذر تحديد عدد صفحات المعالجة بصورة صحيحة."
+    );
+  }
+
+  return prisma.$transaction(
+    async (transaction) => {
+      const currentDocument =
+        await transaction.document.findFirst({
+          where: {
+            id: documentId,
+            project: {
+              userId,
+            },
+          },
+          select: {
+            id: true,
+            billedPages: true,
+            usageSource: true,
+            usageChargedAt: true,
+          },
+        });
+
+      if (!currentDocument) {
+        throw new Error(
+          "المستند غير موجود أو لا تملك صلاحية معالجته."
+        );
+      }
+
+      if (currentDocument.billedPages > 0) {
+        return {
+          charged: false,
+          billedPages:
+            currentDocument.billedPages,
+          usageSource:
+            currentDocument.usageSource,
+          usageChargedAt:
+            currentDocument.usageChargedAt,
+        };
+      }
+
+      const subscription =
+        await transaction.subscription.findUnique({
+          where: {
+            userId,
+          },
+        });
+
+      if (!subscription) {
+        throw new Error(
+          "لا يوجد اشتراك مرتبط بهذا الحساب."
+        );
+      }
+
+      const now = new Date();
+
+      if (
+        subscription.plan !== "FREE" &&
+        subscription.expiresAt &&
+        subscription.expiresAt <= now
+      ) {
+        throw new Error(
+          "انتهت صلاحية الاشتراك. يرجى تجديد الاشتراك للمتابعة."
+        );
+      }
+
+      const includedPagesAvailable =
+        Math.max(
+          subscription.pageLimit -
+            subscription.usedPages,
+          0
+        );
+
+      const extraPagesAvailable =
+        Math.max(
+          subscription.extraPages,
+          0
+        );
+
+      const totalAvailablePages =
+        includedPagesAvailable +
+        extraPagesAvailable;
+
+      if (
+        requiredPages >
+        totalAvailablePages
+      ) {
+        throw new PageLimitError(
+          `هذا المستند يحتاج إلى ${requiredPages} صفحة معالجة، بينما المتاح في رصيدك هو ${totalAvailablePages} صفحة فقط.`,
+          requiredPages,
+          totalAvailablePages
+        );
+      }
+
+      const includedPagesToUse =
+        Math.min(
+          requiredPages,
+          includedPagesAvailable
+        );
+
+      const extraPagesToUse =
+        requiredPages -
+        includedPagesToUse;
+
+      const subscriptionUpdate =
+        await transaction.subscription.updateMany({
+          where: {
+            userId,
+            usedPages:
+              subscription.usedPages,
+            extraPages:
+              subscription.extraPages,
+          },
+          data: {
+            usedPages: {
+              increment:
+                includedPagesToUse,
+            },
+            ...(extraPagesToUse > 0
+              ? {
+                  extraPages: {
+                    decrement:
+                      extraPagesToUse,
+                  },
+                }
+              : {}),
+            ...(subscription.plan === "FREE"
+              ? {
+                  freeTrialUsed: true,
+                }
+              : {}),
+          },
+        });
+
+      if (
+        subscriptionUpdate.count !== 1
+      ) {
+        throw new Error(
+          "تغير رصيد الصفحات أثناء بدء المعالجة. يرجى إعادة المحاولة."
+        );
+      }
+
+      let usageSource:
+        | "INCLUDED_PAGES"
+        | "EXTRA_PAGES"
+        | "MIXED";
+
+      if (
+        includedPagesToUse > 0 &&
+        extraPagesToUse > 0
+      ) {
+        usageSource = "MIXED";
+      } else if (
+        extraPagesToUse > 0
+      ) {
+        usageSource = "EXTRA_PAGES";
+      } else {
+        usageSource = "INCLUDED_PAGES";
+      }
+
+      const chargedAt =
+        new Date();
+
+      const documentUpdate =
+        await transaction.document.updateMany({
+          where: {
+            id: documentId,
+            billedPages: 0,
+          },
+          data: {
+            billedPages:
+              requiredPages,
+            usageSource,
+            usageChargedAt:
+              chargedAt,
+          },
+        });
+
+      if (
+        documentUpdate.count !== 1
+      ) {
+        throw new Error(
+          "تعذر تسجيل استهلاك صفحات المستند بصورة آمنة."
+        );
+      }
+
+      return {
+        charged: true,
+        billedPages:
+          requiredPages,
+        usageSource,
+        usageChargedAt:
+          chargedAt,
+      };
+    }
+  );
+}
+
 
 /*
  * حساب نسبة الحروف العربية داخل النص.
@@ -285,6 +539,64 @@ function evaluateArabicText(
     )
   );
 }
+
+/*
+ * تقييم صلاحية النص المباشر لصفحة واحدة.
+ * نستخدم حدًا أقل من تقييم المستند الكامل لأن الصفحة
+ * الواحدة أقصر بطبيعتها، لكننا نرفض الترميز المشوه.
+ */
+function isDirectPageTextUsable(
+  text: string
+): boolean {
+  const cleanedText = text.trim();
+
+  if (
+    cleanedText.length <
+    MIN_DIRECT_PAGE_CHARACTERS
+  ) {
+    return false;
+  }
+
+  if (hasBrokenFontEncoding(cleanedText)) {
+    return false;
+  }
+
+  const quality =
+    evaluateArabicText(cleanedText);
+
+  const letters =
+    cleanedText.match(/\p{L}/gu) ?? [];
+
+  return (
+    letters.length >= 20 &&
+    quality >= MIN_DIRECT_PAGE_QUALITY
+  );
+}
+
+/*
+ * فحص سريع لنتيجة OCR قبل قبولها.
+ */
+function isOcrPageTextUsable(
+  text: string
+): boolean {
+  const cleanedText = text.trim();
+
+  if (
+    cleanedText.length <
+    MIN_OCR_PAGE_CHARACTERS
+  ) {
+    return false;
+  }
+
+  if (hasBrokenFontEncoding(cleanedText)) {
+    return false;
+  }
+
+  return (
+    getCorruptedWordRatio(cleanedText) < 0.5
+  );
+}
+
 /*
  * إضافة رقم الصفحة قبل نص كل صفحة.
  *
@@ -514,6 +826,20 @@ export async function POST(
     }>;
   }
 ) {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      {
+        error:
+          "يجب تسجيل الدخول أولًا",
+      },
+      {
+        status: 401,
+      }
+    );
+  }
+
   const { id } = await params;
 
   const documentId = Number(id);
@@ -534,9 +860,13 @@ export async function POST(
   }
 
   const document =
-    await prisma.document.findUnique({
+    await prisma.document.findFirst({
       where: {
         id: documentId,
+        project: {
+          userId:
+            session.user.id,
+        },
       },
     });
 
@@ -582,6 +912,20 @@ export async function POST(
       document.sectionAnalysisStatus !==
         "COMPLETED"
     ) {
+      if (document.billedPages === 0) {
+        await chargeDocumentPages({
+          documentId:
+            document.id,
+          userId:
+            session.user.id,
+          requiredPages:
+            Math.max(
+              document.totalPages,
+              1
+            ),
+        });
+      }
+
       const continued =
         await continueHierarchicalProcessing(
           document.id
@@ -631,19 +975,41 @@ export async function POST(
         );
       }
 
+      const wordBillingPages =
+        estimateWordBillingPages(
+          wordText
+        );
+
+      await chargeDocumentPages({
+        documentId:
+          document.id,
+        userId:
+          session.user.id,
+        requiredPages:
+          wordBillingPages,
+      });
+
       const wordContent =
         `[[PAGE:1]]\n${wordText}`;
 
       const completed =
         await completeDocumentProcessing({
-          documentId: document.id,
-          content: wordContent,
+          documentId:
+            document.id,
+          content:
+            wordContent,
           totalPages: 1,
         });
 
-      return NextResponse.json(
-        completed
-      );
+      return NextResponse.json({
+        ...completed,
+        billing: {
+          billedPages:
+            wordBillingPages,
+          pageCountType:
+            "ESTIMATED_FROM_WORD_TEXT",
+        },
+      });
     }
 
     const pdfProxy =
@@ -651,8 +1017,31 @@ export async function POST(
         new Uint8Array(buffer)
       );
 
+    const detectedTotalPages =
+      pdfProxy.numPages;
+
+    if (
+      !Number.isInteger(
+        detectedTotalPages
+      ) ||
+      detectedTotalPages <= 0
+    ) {
+      throw new Error(
+        "تعذر تحديد عدد صفحات ملف PDF."
+      );
+    }
+
+    await chargeDocumentPages({
+      documentId:
+        document.id,
+      userId:
+        session.user.id,
+      requiredPages:
+        detectedTotalPages,
+    });
+
     /*
-     * استخراج النص الأصلي صفحة بصفحة.
+     * بعد نجاح حجز رصيد الصفحات نبدأ استخراج النص.
      */
     const extracted =
       await extractText(pdfProxy, {
@@ -682,8 +1071,16 @@ export async function POST(
         directPlainText
       );
 
+    const usableDirectPages =
+      extractedPages.filter(
+        (pageText) =>
+          isDirectPageTextUsable(
+            pageText ?? ""
+          )
+      ).length;
+
     console.log(
-      "========== TEXT QUALITY =========="
+      "========== SELECTIVE OCR CHECK =========="
     );
 
     console.log(
@@ -692,35 +1089,39 @@ export async function POST(
     );
 
     console.log(
-      "Direct text length:",
-      directPlainText.length
+      "Total pages:",
+      totalPages
     );
 
     console.log(
-      "Direct text quality:",
+      "Pages with usable direct text:",
+      usableDirectPages
+    );
+
+    console.log(
+      "Pages requiring OCR:",
+      Math.max(
+        totalPages - usableDirectPages,
+        0
+      )
+    );
+
+    console.log(
+      "Whole-document direct quality:",
       directTextQuality
     );
 
     console.log(
-      "Minimum accepted quality:",
-      MIN_DIRECT_TEXT_QUALITY
-    );
-
-    console.log(
-      "=================================="
+      "========================================="
     );
 
     /*
-     * إذا كان النص المستخرج مباشرةً جيدًا،
-     * نستخدمه بدون تشغيل OCR.
+     * إذا كانت كل الصفحات تقريبًا صالحة مباشرةً،
+     * نستخدم النص المستخرج بدون تشغيل OCR.
      */
-    if (
-      directPlainText &&
-      directTextQuality >=
-        MIN_DIRECT_TEXT_QUALITY
-    ) {
+    if (usableDirectPages === totalPages) {
       console.log(
-        "Direct PDF text selected"
+        "All PDF pages have usable direct text"
       );
 
       const completed =
@@ -738,13 +1139,9 @@ export async function POST(
     }
 
     /*
-     * إذا كان النص المباشر فارغًا أو ضعيفًا،
-     * نبدأ OCR على دفعات.
+     * نعالج دفعة من الصفحات، لكن نشغّل OCR فقط
+     * على الصفحات التي فشل نصها المباشر.
      */
-    console.log(
-      "Direct text is weak. Starting OCR..."
-    );
-
     const start =
       document.processedPages ?? 0;
 
@@ -752,102 +1149,226 @@ export async function POST(
       start + PAGES_PER_REQUEST,
       totalPages
     );
-    
-const { pdf } = await import("pdf-to-img");
 
-    const rendered =
-      await pdf(buffer, {
-        scale: 2,
-      });
+    const pageTexts =
+      new Map<number, string>();
 
-    const worker =
-      await createWorker(
-        "ara+eng",
-        undefined,
-        {
-          workerPath:
-            "./node_modules/tesseract.js/src/worker-script/node/index.js",
-        }
-      );
+    const pagesNeedingOcr: number[] = [];
 
-    await worker.setParameters({
-      tessedit_pageseg_mode:
-        PSM.SINGLE_BLOCK,
+    for (
+      let pageNumber = start + 1;
+      pageNumber <= end;
+      pageNumber++
+    ) {
+      const directPageText =
+        extractedPages[
+          pageNumber - 1
+        ]?.trim() ?? "";
 
-      preserve_interword_spaces:
-        "1",
-
-      user_defined_dpi:
-        "300",
-    });
-
-    let batchText = "";
-
-    try {
-      for (
-        let pageNumber =
-          start + 1;
-        pageNumber <= end;
-        pageNumber++
+      if (
+        isDirectPageTextUsable(
+          directPageText
+        )
       ) {
-        console.log(
-          `OCR page ${pageNumber} of ${totalPages}`
+        pageTexts.set(
+          pageNumber,
+          directPageText
         );
 
-        const image =
-          await rendered.getPage(
-            pageNumber
-          );
-
-        const prepared =
-          await sharp(image)
-            .rotate()
-            .grayscale()
-            .resize({
-              width: 2400,
-              withoutEnlargement:
-                true,
-            })
-            .median(1)
-            .normalize()
-            .linear(1.25, -20)
-            .sharpen({
-              sigma: 1.2,
-            })
-            .threshold(175)
-            .png()
-            .toBuffer();
-
-        const result =
-          await worker.recognize(
-            prepared
-          );
-
-        const pageText =
-          result.data.text.trim();
-
-        batchText +=
-          `\n\n[[PAGE:${pageNumber}]]\n${pageText}`;
+        console.log(
+          `Direct text page ${pageNumber} of ${totalPages}`
+        );
+      } else {
+        pagesNeedingOcr.push(
+          pageNumber
+        );
       }
-    } finally {
-      await worker.terminate();
-      await rendered.destroy();
     }
+
+    if (pagesNeedingOcr.length > 0) {
+      console.log(
+        "Selective OCR pages in this batch:",
+        pagesNeedingOcr
+      );
+
+      const rendered =
+        await pdf(buffer, {
+          scale: 1.7,
+        });
+
+      const worker =
+        await createWorker(
+          "ara+eng",
+          undefined,
+          {
+            workerPath:
+              "./node_modules/tesseract.js/src/worker-script/node/index.js",
+          }
+        );
+
+      await worker.setParameters({
+        tessedit_pageseg_mode:
+          PSM.SINGLE_BLOCK,
+
+        preserve_interword_spaces:
+          "1",
+
+        user_defined_dpi:
+          "300",
+      });
+
+      try {
+        for (
+          const pageNumber of
+          pagesNeedingOcr
+        ) {
+          console.log(
+            `Selective OCR page ${pageNumber} of ${totalPages}`
+          );
+
+          const image =
+            await rendered.getPage(
+              pageNumber
+            );
+
+          /*
+           * المحاولة الأولى خفيفة وسريعة.
+           */
+          const fastPrepared =
+            await sharp(image)
+              .rotate()
+              .grayscale()
+              .resize({
+                width: 1900,
+                withoutEnlargement:
+                  true,
+              })
+              .normalize()
+              .png()
+              .toBuffer();
+
+          const fastResult =
+            await worker.recognize(
+              fastPrepared
+            );
+
+          let pageText =
+            fastResult.data.text.trim();
+
+          /*
+           * نستخدم الفلاتر الثقيلة فقط إذا كانت
+           * المحاولة السريعة غير صالحة.
+           */
+          if (
+            !isOcrPageTextUsable(
+              pageText
+            )
+          ) {
+            console.log(
+              `Retrying page ${pageNumber} with enhanced OCR`
+            );
+
+            const enhancedPrepared =
+              await sharp(image)
+                .rotate()
+                .grayscale()
+                .resize({
+                  width: 2400,
+                  withoutEnlargement:
+                    true,
+                })
+                .median(1)
+                .normalize()
+                .linear(1.25, -20)
+                .sharpen({
+                  sigma: 1.2,
+                })
+                .threshold(175)
+                .png()
+                .toBuffer();
+
+            const enhancedResult =
+              await worker.recognize(
+                enhancedPrepared
+              );
+
+            const enhancedText =
+              enhancedResult.data.text.trim();
+
+            if (
+              enhancedText.length >
+              pageText.length
+            ) {
+              pageText =
+                enhancedText;
+            }
+          }
+
+          pageTexts.set(
+            pageNumber,
+            pageText
+          );
+        }
+      } finally {
+        await worker.terminate();
+        await rendered.destroy();
+      }
+    }
+
+    const batchText =
+      Array.from(
+        {
+          length:
+            end - start,
+        },
+        (_, index) => {
+          const pageNumber =
+            start + index + 1;
+
+          const pageText =
+            pageTexts.get(
+              pageNumber
+            ) ?? "";
+
+          return (
+            `[[PAGE:${pageNumber}]]\n` +
+            pageText.trim()
+          );
+        }
+      )
+        .join("\n\n")
+        .trim();
 
     const previousContent =
       document.content?.trim() ?? "";
 
-    const ocrContent = [
+    const combinedContent = [
       previousContent,
-      batchText.trim(),
+      batchText,
     ]
       .filter(Boolean)
       .join("\n\n")
       .trim();
 
+    console.log(
+      "Batch pages processed:",
+      `${start + 1}-${end}`
+    );
+
+    console.log(
+      "OCR pages in batch:",
+      pagesNeedingOcr.length
+    );
+
+    console.log(
+      "Direct pages in batch:",
+      end -
+        start -
+        pagesNeedingOcr.length
+    );
+
     /*
      * ما زالت هناك صفحات أخرى.
-     * نحفظ التقدم وننتظر طلب المعالجة التالي.
      */
     if (end < totalPages) {
       const processingDocument =
@@ -856,7 +1377,8 @@ const { pdf } = await import("pdf-to-img");
             id: document.id,
           },
           data: {
-            content: ocrContent,
+            content:
+              combinedContent,
             processingStatus:
               "PROCESSING",
             processedPages: end,
@@ -870,61 +1392,8 @@ const { pdf } = await import("pdf-to-img");
       );
     }
 
-    /*
-     * اكتمل OCR لكل الصفحات.
-     *
-     * الآن نقارن جودة نص OCR
-     * مع جودة النص المباشر.
-     */
-    const ocrPlainText =
-      removePageMarkers(
-        ocrContent
-      );
-
-    const ocrTextQuality =
-      evaluateArabicText(
-        ocrPlainText
-      );
-
     console.log(
-      "========== FINAL TEXT COMPARISON =========="
-    );
-
-    console.log(
-      "Direct text quality:",
-      directTextQuality
-    );
-
-    console.log(
-      "OCR text quality:",
-      ocrTextQuality
-    );
-
-    /*
-     * نستخدم النص الأعلى جودة.
-     *
-     * إذا كان النص المباشر فارغًا،
-     * يتم استخدام OCR تلقائيًا.
-     */
-    const shouldUseDirectText =
-      Boolean(directPlainText) &&
-      directTextQuality >
-        ocrTextQuality;
-
-    const finalContent =
-      shouldUseDirectText
-        ? extractedContent
-        : ocrContent;
-
-    console.log(
-      "Selected text:",
-      shouldUseDirectText
-        ? "DIRECT PDF TEXT"
-        : "OCR TEXT"
-    );
-
-    console.log(
-      "==========================================="
+      "Selective OCR extraction completed"
     );
 
     const completed =
@@ -933,7 +1402,7 @@ const { pdf } = await import("pdf-to-img");
           document.id,
 
         content:
-          finalContent,
+          combinedContent,
 
         totalPages,
       });
@@ -946,6 +1415,38 @@ const { pdf } = await import("pdf-to-img");
       error instanceof Error
         ? error.message
         : "Processing failed";
+
+    if (
+      error instanceof
+      PageLimitError
+    ) {
+      await prisma.document.update({
+        where: {
+          id: documentId,
+        },
+        data: {
+          processingStatus:
+            "QUEUED",
+          processingError:
+            message,
+        },
+      });
+
+      return NextResponse.json(
+        {
+          error: message,
+          reason:
+            "PAGE_LIMIT_REACHED",
+          requiredPages:
+            error.requiredPages,
+          availablePages:
+            error.availablePages,
+        },
+        {
+          status: 429,
+        }
+      );
+    }
 
     console.error(
       "DOCUMENT PROCESSING ERROR:",

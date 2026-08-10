@@ -25,7 +25,10 @@ export async function GET(
     const { id } = await params;
     const projectId = Number(id);
 
-    if (Number.isNaN(projectId)) {
+    if (
+  !Number.isInteger(projectId) ||
+  projectId <= 0
+) {
       return NextResponse.json(
         { error: "Invalid project id" },
         { status: 400 }
@@ -82,7 +85,10 @@ export async function PUT(
     const { id } = await params;
     const projectId = Number(id);
 
-    if (Number.isNaN(projectId)) {
+    if (
+  !Number.isInteger(projectId) ||
+  projectId <= 0
+) {
       return NextResponse.json(
         { error: "Invalid project id" },
         { status: 400 }
@@ -169,7 +175,10 @@ export async function DELETE(
     const { id } = await params;
     const projectId = Number(id);
 
-    if (Number.isNaN(projectId)) {
+    if (
+  !Number.isInteger(projectId) ||
+  projectId <= 0
+) {
       return NextResponse.json(
         { error: "Invalid project id" },
         { status: 400 }

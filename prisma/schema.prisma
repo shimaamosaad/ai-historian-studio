@@ -32,10 +32,44 @@ model Subscription {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  plan          Plan @default(FREE)
-  monthlyLimit  Int  @default(25)
-  usedThisMonth Int  @default(0)
-  extraCredits  Int  @default(0)
+  plan Plan @default(FREE)
+
+  // النظام القديم - مؤقتًا لحين اكتمال النقل
+  monthlyLimit  Int @default(25)
+  usedThisMonth Int @default(0)
+  extraCredits  Int @default(0)
+
+  // ==============================
+  // نظام رصيد الصفحات الجديد
+  // ==============================
+
+  // إجمالي الصفحات المتاحة في الفترة الحالية
+  pageLimit Int @default(500)
+
+  // الصفحات التي تمت معالجتها
+  usedPages Int @default(0)
+
+  // صفحات إضافية تم شراؤها
+  extraPages Int @default(0)
+
+  // ==============================
+  // نظام أسئلة الذكاء الاصطناعي
+  // ==============================
+
+  // عدد الأسئلة المتاحة
+  questionLimit Int @default(10)
+
+  // عدد الأسئلة المستخدمة
+  usedQuestions Int @default(0)
+
+  // أسئلة إضافية تم شراؤها
+  extraQuestions Int @default(0)
+
+  // ==============================
+  // المجاني مرة واحدة فقط
+  // ==============================
+
+  freeTrialUsed Boolean @default(false)
 
   startsAt  DateTime  @default(now())
   expiresAt DateTime?
@@ -79,15 +113,18 @@ model Document {
   summary  String?
   entities String?
 
-  processingStatus      String   @default("COMPLETED")
-  processedPages        Int      @default(0)
-  totalPages            Int      @default(0)
+  processingStatus      String    @default("COMPLETED")
+  processedPages        Int       @default(0)
+  totalPages            Int       @default(0)
+  billedPages           Int       @default(0)
+  usageSource           String?
+  usageChargedAt        DateTime?
   processingError       String?
-  sectionAnalysisStatus String   @default("PENDING")
-  processedSections     Int      @default(0)
-  totalSections         Int      @default(0)
+  sectionAnalysisStatus String    @default("PENDING")
+  processedSections     Int       @default(0)
+  totalSections         Int       @default(0)
   sectionAnalysisError  String?
-  createdAt             DateTime @default(now())
+  createdAt             DateTime  @default(now())
 
   projectId Int
   project   Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)

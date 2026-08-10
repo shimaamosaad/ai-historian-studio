@@ -24,6 +24,214 @@ type HistoryItem = {
 const MAX_HISTORY_ITEMS = 6;
 const MAX_HISTORY_ANSWER_CHARACTERS = 3000;
 
+type QuestionUsageSource =
+  | "INCLUDED_QUESTION"
+  | "EXTRA_QUESTION";
+
+class QuestionLimitError extends Error {
+  availableQuestions: number;
+
+  constructor(
+    message: string,
+    availableQuestions: number
+  ) {
+    super(message);
+    this.name = "QuestionLimitError";
+    this.availableQuestions =
+      availableQuestions;
+  }
+}
+
+async function reserveQuestionCredit(
+  userId: string
+): Promise<QuestionUsageSource> {
+  return prisma.$transaction(
+    async (transaction) => {
+      const subscription =
+        await transaction.subscription.findUnique({
+          where: {
+            userId,
+          },
+        });
+
+      if (!subscription) {
+        throw new Error(
+          "لا يوجد اشتراك مرتبط بهذا الحساب."
+        );
+      }
+
+      const now = new Date();
+
+      if (
+        subscription.plan !== "FREE" &&
+        subscription.expiresAt &&
+        subscription.expiresAt <= now
+      ) {
+        throw new Error(
+          "انتهت صلاحية الاشتراك. يرجى تجديد الاشتراك للمتابعة."
+        );
+      }
+
+      const includedAvailable =
+        Math.max(
+          subscription.questionLimit -
+            subscription.usedQuestions,
+          0
+        );
+
+      const extraAvailable =
+        Math.max(
+          subscription.extraQuestions,
+          0
+        );
+
+      const totalAvailable =
+        includedAvailable +
+        extraAvailable;
+
+      if (totalAvailable <= 0) {
+        throw new QuestionLimitError(
+          "لقد استهلكت رصيد أسئلة الذكاء الاصطناعي المتاح. يرجى ترقية الباقة أو شراء أسئلة إضافية للمتابعة.",
+          0
+        );
+      }
+
+      if (includedAvailable > 0) {
+        const updated =
+          await transaction.subscription.updateMany({
+            where: {
+              userId,
+              usedQuestions:
+                subscription.usedQuestions,
+              extraQuestions:
+                subscription.extraQuestions,
+            },
+            data: {
+              usedQuestions: {
+                increment: 1,
+              },
+            },
+          });
+
+        if (updated.count !== 1) {
+          throw new Error(
+            "تغير رصيد الأسئلة أثناء إرسال السؤال. يرجى المحاولة مرة أخرى."
+          );
+        }
+
+        return "INCLUDED_QUESTION";
+      }
+
+      const updated =
+        await transaction.subscription.updateMany({
+          where: {
+            userId,
+            usedQuestions:
+              subscription.usedQuestions,
+            extraQuestions: {
+              gt: 0,
+            },
+          },
+          data: {
+            extraQuestions: {
+              decrement: 1,
+            },
+          },
+        });
+
+      if (updated.count !== 1) {
+        throw new Error(
+          "تغير رصيد الأسئلة أثناء إرسال السؤال. يرجى المحاولة مرة أخرى."
+        );
+      }
+
+      return "EXTRA_QUESTION";
+    }
+  );
+}
+
+async function refundQuestionCredit(
+  userId: string,
+  source: QuestionUsageSource
+) {
+  try {
+    if (source === "INCLUDED_QUESTION") {
+      await prisma.subscription.updateMany({
+        where: {
+          userId,
+          usedQuestions: {
+            gt: 0,
+          },
+        },
+        data: {
+          usedQuestions: {
+            decrement: 1,
+          },
+        },
+      });
+
+      return;
+    }
+
+    await prisma.subscription.update({
+      where: {
+        userId,
+      },
+      data: {
+        extraQuestions: {
+          increment: 1,
+        },
+      },
+    });
+  } catch (refundError) {
+    console.error(
+      "QUESTION CREDIT REFUND ERROR:",
+      refundError
+    );
+  }
+}
+
+async function getQuestionBalance(
+  userId: string
+) {
+  const subscription =
+    await prisma.subscription.findUnique({
+      where: {
+        userId,
+      },
+      select: {
+        questionLimit: true,
+        usedQuestions: true,
+        extraQuestions: true,
+      },
+    });
+
+  if (!subscription) {
+    return null;
+  }
+
+  const remainingQuestions =
+    Math.max(
+      subscription.questionLimit -
+        subscription.usedQuestions,
+      0
+    );
+
+  return {
+    questionLimit:
+      subscription.questionLimit,
+    usedQuestions:
+      subscription.usedQuestions,
+    remainingQuestions,
+    extraQuestions:
+      subscription.extraQuestions,
+    totalRemainingQuestions:
+      remainingQuestions +
+      subscription.extraQuestions,
+  };
+}
+
+
 function buildHistory(
   messages: {
     role: string;
@@ -125,6 +333,17 @@ export async function POST(
     }>;
   }
 ) {
+  let reservedQuestionSource:
+    | QuestionUsageSource
+    | null = null;
+
+  let questionChargeFinalized =
+    false;
+
+  let currentUserId:
+    | string
+    | null = null;
+
   try {
     const session =
       await auth();
@@ -140,6 +359,9 @@ export async function POST(
         }
       );
     }
+
+    currentUserId =
+      session.user.id;
 
     const { id } = await params;
     const documentId = Number(id);
@@ -419,6 +641,11 @@ export async function POST(
       });
     }
 
+    reservedQuestionSource =
+      await reserveQuestionCredit(
+        session.user.id
+      );
+
     const generationQuestion =
       buildGenerationQuestion(
         question,
@@ -503,6 +730,14 @@ export async function POST(
       }),
     ]);
 
+    questionChargeFinalized =
+      true;
+
+    const questionBalance =
+      await getQuestionBalance(
+        session.user.id
+      );
+
     return NextResponse.json({
       document: {
         id: document.id,
@@ -536,6 +771,15 @@ export async function POST(
         generated.confidence,
       evidenceCount:
         generated.evidenceCount,
+
+      usage: {
+        charged: true,
+        source:
+          reservedQuestionSource,
+        questions:
+          questionBalance,
+      },
+
       results:
         results.map(
           (
@@ -558,6 +802,36 @@ export async function POST(
         ),
     });
   } catch (error) {
+    if (
+      reservedQuestionSource &&
+      !questionChargeFinalized &&
+      currentUserId
+    ) {
+      await refundQuestionCredit(
+        currentUserId,
+        reservedQuestionSource
+      );
+    }
+
+    if (
+      error instanceof
+      QuestionLimitError
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            error.message,
+          reason:
+            "QUESTION_LIMIT_REACHED",
+          availableQuestions:
+            error.availableQuestions,
+        },
+        {
+          status: 429,
+        }
+      );
+    }
+
     console.error(
       "Ask document error:",
       error

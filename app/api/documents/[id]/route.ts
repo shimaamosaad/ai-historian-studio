@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { saveEntities } from "@/lib/ai/saveEntities";
 
@@ -417,6 +418,19 @@ export async function PUT(
   }
 ) {
   try {
+    const session = await auth();
+
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        {
+          error: "Unauthorized",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
     const { id } = await params;
     const documentId = Number(id);
 
@@ -435,6 +449,30 @@ export async function PUT(
       );
     }
 
+    const existingDocument =
+      await prisma.document.findFirst({
+        where: {
+          id: documentId,
+          project: {
+            userId: session.user.id,
+          },
+        },
+        select: {
+          id: true,
+        },
+      });
+
+    if (!existingDocument) {
+      return NextResponse.json(
+        {
+          error: "المستند غير موجود",
+        },
+        {
+          status: 404,
+        }
+      );
+    }
+
     const body =
       await req.json();
 
@@ -444,7 +482,7 @@ export async function PUT(
     const document =
       await prisma.document.update({
         where: {
-          id: documentId,
+          id: existingDocument.id,
         },
 
         data: {
@@ -496,6 +534,19 @@ export async function DELETE(
   }
 ) {
   try {
+    const session = await auth();
+
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        {
+          error: "Unauthorized",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
     const { id } = await params;
     const documentId = Number(id);
 
@@ -515,9 +566,12 @@ export async function DELETE(
     }
 
     const document =
-      await prisma.document.findUnique({
+      await prisma.document.findFirst({
         where: {
           id: documentId,
+          project: {
+            userId: session.user.id,
+          },
         },
 
         select: {
