@@ -10,29 +10,55 @@ import { paddle } from "@/lib/paddle/server";
 
 export const runtime = "nodejs";
 
+const FREE_PAGE_LIMIT = 500;
+const FREE_QUESTION_LIMIT = 10;
+
+const PRO_PAGE_LIMIT = 5000;
+const PRO_QUESTION_LIMIT = 100;
+
 type PaddleCustomData = {
   userId?: string;
+
   purchaseType?:
     | "PRO_MONTHLY"
     | "PRO_YEARLY"
-    | "CREDITS_100"
-    | "CREDITS_500"
-    | "CREDITS_1000";
+    | "PAGES_1000"
+    | "PAGES_3000"
+    | "PAGES_5000";
+
   plan?: "PRO" | null;
-  billingCycle?: "MONTHLY" | "YEARLY" | null;
-  credits?: number | null;
+
+  billingCycle?:
+    | "MONTHLY"
+    | "YEARLY"
+    | null;
+
+  extraPages?: number | null;
 };
 
 type PaddleWebhookData = {
   id?: string;
+
   status?: string;
+
   customerId?: string | null;
-  subscriptionId?: string | null;
-  nextBilledAt?: string | null;
+
+  subscriptionId?:
+    | string
+    | null;
+
+  nextBilledAt?:
+    | string
+    | null;
 
   currentBillingPeriod?: {
-    startsAt?: string | null;
-    endsAt?: string | null;
+    startsAt?:
+      | string
+      | null;
+
+    endsAt?:
+      | string
+      | null;
   } | null;
 
   items?: Array<{
@@ -41,11 +67,15 @@ type PaddleWebhookData = {
     } | null;
   }>;
 
-  customData?: PaddleCustomData | null;
+  customData?:
+    | PaddleCustomData
+    | null;
 };
 
 function getWebhookSecret(): string {
-  const secret = process.env.PADDLE_WEBHOOK_SECRET;
+  const secret =
+    process.env
+      .PADDLE_WEBHOOK_SECRET;
 
   if (!secret) {
     throw new Error(
@@ -57,16 +87,26 @@ function getWebhookSecret(): string {
 }
 
 function toDate(
-  value: string | Date | null | undefined
+  value:
+    | string
+    | Date
+    | null
+    | undefined
 ): Date | null {
   if (!value) {
     return null;
   }
 
   const date =
-    value instanceof Date ? value : new Date(value);
+    value instanceof Date
+      ? value
+      : new Date(value);
 
-  if (Number.isNaN(date.getTime())) {
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
     return null;
   }
 
@@ -76,27 +116,33 @@ function toDate(
 function getCustomData(
   data: PaddleWebhookData
 ): PaddleCustomData {
-  return data.customData ?? {};
+  return (
+    data.customData ?? {}
+  );
 }
 
 function getPriceId(
   data: PaddleWebhookData
 ): string | null {
-  return data.items?.[0]?.price?.id ?? null;
+  return (
+    data.items?.[0]?.price
+      ?.id ?? null
+  );
 }
 
-function getCreditsFromPurchaseType(
-  purchaseType: PaddleCustomData["purchaseType"]
+function getExtraPagesFromPurchaseType(
+  purchaseType:
+    PaddleCustomData["purchaseType"]
 ): number {
   switch (purchaseType) {
-    case "CREDITS_100":
-      return 100;
-
-    case "CREDITS_500":
-      return 500;
-
-    case "CREDITS_1000":
+    case "PAGES_1000":
       return 1000;
+
+    case "PAGES_3000":
+      return 3000;
+
+    case "PAGES_5000":
+      return 5000;
 
     default:
       return 0;
@@ -104,29 +150,45 @@ function getCreditsFromPurchaseType(
 }
 
 function isProPurchase(
-  purchaseType: PaddleCustomData["purchaseType"]
+  purchaseType:
+    PaddleCustomData["purchaseType"]
 ) {
   return (
-    purchaseType === "PRO_MONTHLY" ||
-    purchaseType === "PRO_YEARLY"
+    purchaseType ===
+      "PRO_MONTHLY" ||
+    purchaseType ===
+      "PRO_YEARLY"
   );
 }
 
 async function processTransactionCompleted(
-  transaction: Prisma.TransactionClient,
-  data: PaddleWebhookData,
-  occurredAt: Date
+  transaction:
+    Prisma.TransactionClient,
+
+  data:
+    PaddleWebhookData,
+
+  occurredAt:
+    Date
 ) {
-  const customData = getCustomData(data);
+  const customData =
+    getCustomData(data);
 
-  const userId = customData.userId;
-  const purchaseType = customData.purchaseType;
+  const userId =
+    customData.userId;
 
-  if (!userId || !purchaseType) {
+  const purchaseType =
+    customData.purchaseType;
+
+  if (
+    !userId ||
+    !purchaseType
+  ) {
     console.warn(
       "PADDLE TRANSACTION WITHOUT CUSTOM DATA:",
       {
-        transactionId: data.id,
+        transactionId:
+          data.id,
         customData,
       }
     );
@@ -134,10 +196,12 @@ async function processTransactionCompleted(
     return;
   }
 
-  const credits =
-    getCreditsFromPurchaseType(purchaseType);
+  const extraPages =
+    getExtraPagesFromPurchaseType(
+      purchaseType
+    );
 
-  if (credits > 0) {
+  if (extraPages > 0) {
     await transaction.subscription.upsert({
       where: {
         userId,
@@ -145,34 +209,84 @@ async function processTransactionCompleted(
 
       create: {
         userId,
+
         plan: "FREE",
-        monthlyLimit: 25,
+
+        monthlyLimit: 0,
         usedThisMonth: 0,
-        extraCredits: credits,
+        extraCredits: 0,
+
+        pageLimit:
+          FREE_PAGE_LIMIT,
+
+        usedPages: 0,
+
+        extraPages,
+
+        questionLimit:
+          FREE_QUESTION_LIMIT,
+
+        usedQuestions: 0,
+
+        extraQuestions: 0,
+
+        freeTrialUsed:
+          false,
+
         paddleCustomerId:
-          data.customerId ?? null,
-        paddleStatus: "active",
-        lastPaddleEventAt: occurredAt,
+          data.customerId ??
+          null,
+
+        paddleStatus:
+          "active",
+
+        lastPaddleEventAt:
+          occurredAt,
       },
 
       update: {
-        extraCredits: {
-          increment: credits,
+        extraPages: {
+          increment:
+            extraPages,
         },
+
         paddleCustomerId:
-          data.customerId ?? undefined,
-        lastPaddleEventAt: occurredAt,
+          data.customerId ??
+          undefined,
+
+        lastPaddleEventAt:
+          occurredAt,
       },
     });
 
     console.log(
-      `Added ${credits} extra credits to user ${userId}`
+      `Added ${extraPages} extra pages to user ${userId}`
     );
 
     return;
   }
 
-  if (isProPurchase(purchaseType)) {
+  if (
+    isProPurchase(
+      purchaseType
+    )
+  ) {
+    const billingCycle =
+      purchaseType ===
+      "PRO_YEARLY"
+        ? "YEARLY"
+        : "MONTHLY";
+
+    const expiresAt =
+      toDate(
+        data
+          .currentBillingPeriod
+          ?.endsAt
+      ) ??
+      toDate(
+        data.nextBilledAt
+      );
+
     await transaction.subscription.upsert({
       where: {
         userId,
@@ -180,41 +294,99 @@ async function processTransactionCompleted(
 
       create: {
         userId,
+
         plan: "PRO",
-        monthlyLimit: 100,
+
+        monthlyLimit: 0,
         usedThisMonth: 0,
         extraCredits: 0,
-        startsAt: new Date(),
+
+        pageLimit:
+          PRO_PAGE_LIMIT,
+
+        usedPages: 0,
+
+        extraPages: 0,
+
+        questionLimit:
+          PRO_QUESTION_LIMIT,
+
+        usedQuestions: 0,
+
+        extraQuestions: 0,
+
+        freeTrialUsed:
+          true,
+
+        startsAt:
+          new Date(),
+
+        expiresAt,
+
         paddleCustomerId:
-          data.customerId ?? null,
+          data.customerId ??
+          null,
+
         paddleSubscriptionId:
-          data.subscriptionId ?? null,
-        paddlePriceId: getPriceId(data),
-        paddleStatus: "active",
-        billingCycle:
-          purchaseType === "PRO_YEARLY"
-            ? "YEARLY"
-            : "MONTHLY",
-        lastPaddleEventAt: occurredAt,
+          data.subscriptionId ??
+          null,
+
+        paddlePriceId:
+          getPriceId(data),
+
+        paddleStatus:
+          "active",
+
+        billingCycle,
+
+        lastPaddleEventAt:
+          occurredAt,
       },
 
       update: {
         plan: "PRO",
-        monthlyLimit: 100,
+
+        monthlyLimit: 0,
         usedThisMonth: 0,
-        startsAt: new Date(),
+        extraCredits: 0,
+
+        pageLimit:
+          PRO_PAGE_LIMIT,
+
+        usedPages: 0,
+
+        questionLimit:
+          PRO_QUESTION_LIMIT,
+
+        usedQuestions: 0,
+
+        freeTrialUsed:
+          true,
+
+        startsAt:
+          new Date(),
+
+        expiresAt,
+
         paddleCustomerId:
-          data.customerId ?? undefined,
+          data.customerId ??
+          undefined,
+
         paddleSubscriptionId:
-          data.subscriptionId ?? undefined,
+          data.subscriptionId ??
+          undefined,
+
         paddlePriceId:
-          getPriceId(data) ?? undefined,
-        paddleStatus: "active",
-        billingCycle:
-          purchaseType === "PRO_YEARLY"
-            ? "YEARLY"
-            : "MONTHLY",
-        lastPaddleEventAt: occurredAt,
+          getPriceId(data) ??
+          undefined,
+
+        paddleStatus:
+          "active",
+
+        billingCycle,
+
+        lastPaddleEventAt:
+          occurredAt,
       },
     });
 
@@ -225,20 +397,31 @@ async function processTransactionCompleted(
 }
 
 async function processSubscriptionEvent(
-  transaction: Prisma.TransactionClient,
-  eventType: string,
-  data: PaddleWebhookData,
-  occurredAt: Date
+  transaction:
+    Prisma.TransactionClient,
+
+  eventType:
+    string,
+
+  data:
+    PaddleWebhookData,
+
+  occurredAt:
+    Date
 ) {
-  const customData = getCustomData(data);
-  const userId = customData.userId;
+  const customData =
+    getCustomData(data);
+
+  const userId =
+    customData.userId;
 
   if (!userId) {
     console.warn(
       "PADDLE SUBSCRIPTION WITHOUT USER ID:",
       {
         eventType,
-        subscriptionId: data.id,
+        subscriptionId:
+          data.id,
         customData,
       }
     );
@@ -247,7 +430,9 @@ async function processSubscriptionEvent(
   }
 
   const isCanceled =
-    eventType === EventName.SubscriptionCanceled;
+    eventType ===
+    EventName
+      .SubscriptionCanceled;
 
   if (isCanceled) {
     await transaction.subscription.upsert({
@@ -257,48 +442,101 @@ async function processSubscriptionEvent(
 
       create: {
         userId,
+
         plan: "FREE",
-        monthlyLimit: 25,
+
+        monthlyLimit: 0,
         usedThisMonth: 0,
         extraCredits: 0,
+
+        pageLimit: 0,
+        usedPages: 0,
+        extraPages: 0,
+
+        questionLimit: 0,
+        usedQuestions: 0,
+        extraQuestions: 0,
+
+        freeTrialUsed:
+          true,
+
         paddleCustomerId:
-          data.customerId ?? null,
+          data.customerId ??
+          null,
+
         paddleSubscriptionId:
-          data.id ?? null,
-        paddlePriceId: getPriceId(data),
+          data.id ??
+          null,
+
+        paddlePriceId:
+          getPriceId(data),
+
         paddleStatus:
-          data.status ?? "canceled",
+          data.status ??
+          "canceled",
+
         billingCycle:
-          customData.billingCycle ?? null,
+          customData
+            .billingCycle ??
+          null,
+
         expiresAt:
           toDate(
-            data.currentBillingPeriod
+            data
+              .currentBillingPeriod
               ?.endsAt
-          ) ?? new Date(),
-        lastPaddleEventAt: occurredAt,
+          ) ??
+          new Date(),
+
+        lastPaddleEventAt:
+          occurredAt,
       },
 
       update: {
         plan: "FREE",
-        monthlyLimit: 25,
+
+        monthlyLimit: 0,
         usedThisMonth: 0,
+        extraCredits: 0,
+
+        pageLimit: 0,
+
+        questionLimit: 0,
+
+        freeTrialUsed:
+          true,
+
         paddleCustomerId:
-          data.customerId ?? undefined,
-        paddleSubscriptionId:
-          data.id ?? undefined,
-        paddlePriceId:
-          getPriceId(data) ?? undefined,
-        paddleStatus:
-          data.status ?? "canceled",
-        billingCycle:
-          customData.billingCycle ??
+          data.customerId ??
           undefined,
+
+        paddleSubscriptionId:
+          data.id ??
+          undefined,
+
+        paddlePriceId:
+          getPriceId(data) ??
+          undefined,
+
+        paddleStatus:
+          data.status ??
+          "canceled",
+
+        billingCycle:
+          customData
+            .billingCycle ??
+          undefined,
+
         expiresAt:
           toDate(
-            data.currentBillingPeriod
+            data
+              .currentBillingPeriod
               ?.endsAt
-          ) ?? new Date(),
-        lastPaddleEventAt: occurredAt,
+          ) ??
+          new Date(),
+
+        lastPaddleEventAt:
+          occurredAt,
       },
     });
 
@@ -311,13 +549,25 @@ async function processSubscriptionEvent(
 
   const startsAt =
     toDate(
-      data.currentBillingPeriod?.startsAt
-    ) ?? new Date();
+      data
+        .currentBillingPeriod
+        ?.startsAt
+    ) ??
+    new Date();
 
   const expiresAt =
     toDate(
-      data.currentBillingPeriod?.endsAt
-    ) ?? toDate(data.nextBilledAt);
+      data
+        .currentBillingPeriod
+        ?.endsAt
+    ) ??
+    toDate(
+      data.nextBilledAt
+    );
+
+  const billingCycle =
+    customData.billingCycle ??
+    null;
 
   await transaction.subscription.upsert({
     where: {
@@ -326,76 +576,142 @@ async function processSubscriptionEvent(
 
     create: {
       userId,
+
       plan: "PRO",
-      monthlyLimit: 100,
+
+      monthlyLimit: 0,
       usedThisMonth: 0,
       extraCredits: 0,
+
+      pageLimit:
+        PRO_PAGE_LIMIT,
+
+      usedPages: 0,
+
+      extraPages: 0,
+
+      questionLimit:
+        PRO_QUESTION_LIMIT,
+
+      usedQuestions: 0,
+
+      extraQuestions: 0,
+
+      freeTrialUsed:
+        true,
+
       startsAt,
+
       expiresAt,
+
       paddleCustomerId:
-        data.customerId ?? null,
+        data.customerId ??
+        null,
+
       paddleSubscriptionId:
-        data.id ?? null,
-      paddlePriceId: getPriceId(data),
+        data.id ??
+        null,
+
+      paddlePriceId:
+        getPriceId(data),
+
       paddleStatus:
-        data.status ?? "active",
-      billingCycle:
-        customData.billingCycle ?? null,
-      lastPaddleEventAt: occurredAt,
+        data.status ??
+        "active",
+
+      billingCycle,
+
+      lastPaddleEventAt:
+        occurredAt,
     },
 
     update: {
       plan: "PRO",
-      monthlyLimit: 100,
+
+      monthlyLimit: 0,
+      usedThisMonth: 0,
+      extraCredits: 0,
+
+      pageLimit:
+        PRO_PAGE_LIMIT,
+
+      usedPages: 0,
+
+      questionLimit:
+        PRO_QUESTION_LIMIT,
+
+      usedQuestions: 0,
+
+      freeTrialUsed:
+        true,
+
       startsAt,
+
       expiresAt,
+
       paddleCustomerId:
-        data.customerId ?? undefined,
-      paddleSubscriptionId:
-        data.id ?? undefined,
-      paddlePriceId:
-        getPriceId(data) ?? undefined,
-      paddleStatus:
-        data.status ?? "active",
-      billingCycle:
-        customData.billingCycle ??
+        data.customerId ??
         undefined,
-      lastPaddleEventAt: occurredAt,
+
+      paddleSubscriptionId:
+        data.id ??
+        undefined,
+
+      paddlePriceId:
+        getPriceId(data) ??
+        undefined,
+
+      paddleStatus:
+        data.status ??
+        "active",
+
+      billingCycle:
+        billingCycle ??
+        undefined,
+
+      lastPaddleEventAt:
+        occurredAt,
     },
   });
 
   console.log(
-    `Synced subscription ${data.id} for user ${userId}`
+    `Synced PRO subscription ${data.id} for user ${userId}`
   );
 }
 
 async function processWebhookEvent(
-  event: EventEntity
+  event:
+    EventEntity
 ) {
-  const eventId = event.eventId;
-  const eventType = event.eventType;
+  const eventId =
+    event.eventId;
+
+  const eventType =
+    event.eventType;
 
   const occurredAt =
-    toDate(event.occurredAt) ?? new Date();
+    toDate(
+      event.occurredAt
+    ) ??
+    new Date();
 
   const data =
-    event.data as unknown as PaddleWebhookData;
+    event.data as unknown as
+      PaddleWebhookData;
 
   await prisma.$transaction(
-    async (transaction) => {
-      /*
-        تسجيل الحدث أولًا داخل نفس الـTransaction.
-
-        eventId عليه unique constraint؛ لذلك لو Paddle
-        أرسلت نفس الحدث مرتين، لن يتم تنفيذ الشراء مرتين.
-      */
-      await transaction.paddleWebhookEvent.create({
-        data: {
-          eventId,
-          eventType,
-          occurredAt,
-        },
-      });
+    async (
+      transaction
+    ) => {
+      await transaction
+        .paddleWebhookEvent
+        .create({
+          data: {
+            eventId,
+            eventType,
+            occurredAt,
+          },
+        });
 
       switch (eventType) {
         case EventName.TransactionCompleted:
@@ -427,11 +743,15 @@ async function processWebhookEvent(
   );
 }
 
-export async function POST(request: Request) {
+export async function POST(
+  request:
+    Request
+) {
   try {
-    const signature = request.headers.get(
-      "paddle-signature"
-    );
+    const signature =
+      request.headers.get(
+        "paddle-signature"
+      );
 
     if (!signature) {
       return NextResponse.json(
@@ -445,17 +765,14 @@ export async function POST(request: Request) {
       );
     }
 
-    /*
-      مهم جدًا استخدام request.text() بدل request.json().
-
-      Paddle تحتاج النص الخام للطلب للتحقق من التوقيع.
-    */
-    const rawBody = await request.text();
+    const rawBody =
+      await request.text();
 
     if (!rawBody) {
       return NextResponse.json(
         {
-          error: "Webhook body is empty.",
+          error:
+            "Webhook body is empty.",
         },
         {
           status: 400,
@@ -474,14 +791,10 @@ export async function POST(request: Request) {
       );
 
     try {
-      await processWebhookEvent(event);
+      await processWebhookEvent(
+        event
+      );
     } catch (error) {
-      /*
-        P2002 يعني أن eventId موجود بالفعل،
-        وبالتالي Paddle أعادت إرسال نفس الحدث.
-
-        نرجع 200 حتى تعرف Paddle أن الحدث تمت معالجته.
-      */
       if (
         error instanceof
           Prisma.PrismaClientKnownRequestError &&
@@ -500,23 +813,12 @@ export async function POST(request: Request) {
       throw error;
     }
 
-    console.log(
-      "========== PADDLE WEBHOOK PROCESSED =========="
-    );
-    console.log("Event ID:", event.eventId);
-    console.log("Event Type:", event.eventType);
-    console.log(
-      "Occurred At:",
-      event.occurredAt
-    );
-    console.log(
-      "=============================================="
-    );
-
     return NextResponse.json({
       received: true,
-      eventId: event.eventId,
-      eventType: event.eventType,
+      eventId:
+        event.eventId,
+      eventType:
+        event.eventType,
     });
   } catch (error) {
     console.error(

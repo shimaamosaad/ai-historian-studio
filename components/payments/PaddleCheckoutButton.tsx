@@ -7,9 +7,9 @@ import { getPaddle } from "@/lib/paddle/client";
 export type PurchaseType =
   | "PRO_MONTHLY"
   | "PRO_YEARLY"
-  | "CREDITS_100"
-  | "CREDITS_500"
-  | "CREDITS_1000";
+  | "PAGES_1000"
+  | "PAGES_3000"
+  | "PAGES_5000";
 
 type CheckoutResponse = {
   checkout?: {
@@ -30,7 +30,7 @@ type CheckoutResponse = {
         | "MONTHLY"
         | "YEARLY"
         | null;
-      credits: number | null;
+      extraPages: number | null;
     };
   };
 
@@ -84,14 +84,18 @@ export default function PaddleCheckoutButton({
       const result =
         (await response.json()) as CheckoutResponse;
 
-      if (!response.ok || !result.checkout) {
+      if (
+        !response.ok ||
+        !result.checkout
+      ) {
         throw new Error(
           result.error ||
             "تعذر تجهيز عملية الدفع."
         );
       }
 
-      const paddle = await getPaddle();
+      const paddle =
+        await getPaddle();
 
       if (!paddle) {
         throw new Error(
@@ -100,22 +104,34 @@ export default function PaddleCheckoutButton({
       }
 
       paddle.Checkout.open({
-        items: result.checkout.items,
+        items:
+          result.checkout.items,
 
         customer: {
           email:
-            result.checkout.customer.email,
+            result.checkout
+              .customer.email,
         },
 
         customData:
-          result.checkout.customData,
+          result.checkout
+            .customData,
 
         settings: {
-          displayMode: "overlay",
-          variant: "one-page",
-          theme: "dark",
-          locale: "en",
-          allowLogout: false,
+          displayMode:
+            "overlay",
+
+          variant:
+            "one-page",
+
+          theme:
+            "dark",
+
+          locale:
+            "en",
+
+          allowLogout:
+            false,
         },
       });
     } catch (checkoutError) {
@@ -140,7 +156,10 @@ export default function PaddleCheckoutButton({
       <button
         type="button"
         onClick={openCheckout}
-        disabled={disabled || isLoading}
+        disabled={
+          disabled ||
+          isLoading
+        }
         className={`${className} disabled:cursor-not-allowed disabled:opacity-60`}
       >
         {isLoading

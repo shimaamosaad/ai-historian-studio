@@ -52,10 +52,11 @@ const plans: Plan[] = [
     icon: Sparkles,
     featured: false,
     buttonText: "ابدأ الآن مجانًا",
-    buttonHref: "/projects/new",
+    buttonHref: "/register",
     features: [
-      "مشروعان بحثيان",
-      "تحليل حتى 25 ملفًا شهريًا",
+      "500 صفحة معالجة للتجربة المجانية",
+      "10 أسئلة بالذكاء الاصطناعي",
+      "التجربة المجانية مرة واحدة للحساب",
       "تحليل أساسي للوثائق",
       "استخراج الشخصيات والأماكن",
       "البحث داخل المستندات",
@@ -76,8 +77,9 @@ const plans: Plan[] = [
     yearlyPurchaseType: "PRO_YEARLY",
     features: [
       "مشروعات غير محدودة",
-      "تحليل حتى 100 ملف شهريًا",
-      "إمكانية شراء ملفات إضافية عند الحاجة",
+      "5000 صفحة معالجة شهريًا",
+      "100 سؤال بالذكاء الاصطناعي شهريًا",
+      "إمكانية شراء صفحات إضافية عند الحاجة",
       "OCR للمستندات الممسوحة ضوئيًا",
       "البحث الذكي داخل الوثائق",
       "الشبكة المعرفية (Knowledge Graph)",
@@ -110,23 +112,23 @@ const plans: Plan[] = [
 
 const creditPacks: CreditPack[] = [
   {
-    credits: "100 ملف إضافي",
-    price: "$10",
-    label: "مثالية إذا انتهت باقتك الشهرية",
-    purchaseType: "CREDITS_100",
+    credits: "1000 صفحة إضافية",
+    price: "$5",
+    label: "مناسبة للاحتياجات الإضافية البسيطة",
+    purchaseType: "PAGES_1000",
   },
   {
-    credits: "500 ملف إضافي",
-    price: "$45",
+    credits: "3000 صفحة إضافية",
+    price: "$12",
     label: "الأفضل للباحثين النشطين",
-    purchaseType: "CREDITS_500",
+    purchaseType: "PAGES_3000",
     featured: true,
   },
   {
-    credits: "1000 ملف إضافي",
-    price: "$80",
+    credits: "5000 صفحة إضافية",
+    price: "$18",
     label: "للمشروعات البحثية الكبيرة",
-    purchaseType: "CREDITS_1000",
+    purchaseType: "PAGES_5000",
   },
 ];
 
@@ -458,7 +460,7 @@ export default function Pricing() {
               <div>
                 <div className="flex flex-wrap items-center justify-center gap-2 lg:justify-start">
                   <h3 className="text-2xl font-black md:text-3xl">
-                    احتجت أرصدة تحليل إضافية؟
+                    احتجت صفحات معالجة إضافية؟
                   </h3>
 
                   <span className="inline-flex items-center gap-1 rounded-full border border-blue-400/20 bg-blue-500/10 px-3 py-1 text-xs font-black text-blue-300">
@@ -468,7 +470,7 @@ export default function Pricing() {
                 </div>
 
                 <p className="mt-3 max-w-2xl leading-7 text-slate-400">
-                  يمكنك شراء أرصدة إضافية في أي وقت
+                  يمكنك شراء صفحات معالجة إضافية في أي وقت
                   ومواصلة العمل فورًا دون انتظار تجدد
                   اشتراكك الشهري.
                 </p>
@@ -525,7 +527,7 @@ export default function Pricing() {
                       creditButtonClassName
                     }
                   >
-                    شراء الرصيد
+                    شراء الصفحات
                   </PaddleCheckoutButton>
                 </div>
               );
@@ -533,9 +535,9 @@ export default function Pricing() {
           </div>
 
           <p className="mt-6 text-center text-xs leading-6 text-slate-500">
-            الرصيد يُستخدم في تحليل الملفات، وقد تختلف
-            طريقة احتسابه لاحقًا وفق حجم الملف ونوع
-            المعالجة المطلوبة.
+            الرصيد الإضافي يُضاف إلى صفحات المعالجة المتاحة
+            في حسابك، ويتم خصم عدد صفحات المستند الفعلي
+            عند بدء المعالجة.
           </p>
         </motion.div>
 
