@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -137,20 +138,32 @@ export default async function SubscriptionPage() {
       className="min-h-screen bg-slate-950 px-5 py-10 text-white"
     >
       <div className="mx-auto max-w-6xl">
-        <div className="mb-8">
-          <p className="text-sm font-bold text-cyan-400">
-            حسابك في أثر
-          </p>
 
-          <h1 className="mt-2 text-3xl font-black">
-            الاشتراك والاستخدام
-          </h1>
+  {/* زر الرجوع للصفحة الرئيسية */}
+  <div className="mb-6 flex items-center justify-start">
+    <Link
+      href="/"
+      className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-bold text-cyan-300 transition hover:border-cyan-400/60 hover:bg-cyan-400/20 hover:text-cyan-200"
+    >
+      <span>←</span>
+      <span>الصفحة الرئيسية</span>
+    </Link>
+  </div>
 
-          <p className="mt-3 max-w-3xl leading-7 text-slate-400">
-            تابعي رصيد معالجة الصفحات وأسئلة الذكاء
-            الاصطناعي المتاحة في خطتك.
-          </p>
-        </div>
+  <div className="mb-8">
+    <p className="text-sm font-bold text-cyan-400">
+      حسابك في أثر
+    </p>
+
+    <h1 className="mt-2 text-3xl font-black">
+      الاشتراك والاستخدام
+    </h1>
+
+    <p className="mt-3 max-w-3xl leading-7 text-slate-400">
+      تابعي رصيد معالجة الصفحات وأسئلة الذكاء
+      الاصطناعي المتاحة في خطتك.
+    </p>
+  </div>
 
         <section className="grid gap-5 md:grid-cols-3">
           <div className="rounded-2xl border border-white/10 bg-slate-900 p-6">

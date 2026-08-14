@@ -936,11 +936,20 @@ export async function POST(
       );
     }
 
-    const filePath = path.join(
-      process.cwd(),
-      "public",
-      document.url.replace(/^\//, "")
-    );
+    const normalizedUrl =
+      document.url.replace(/^\//, "");
+
+    const filePath =
+      normalizedUrl.startsWith("storage/")
+        ? path.join(
+            process.cwd(),
+            normalizedUrl
+          )
+        : path.join(
+            process.cwd(),
+            "public",
+            normalizedUrl
+          );
 
     const buffer =
       await fs.readFile(filePath);

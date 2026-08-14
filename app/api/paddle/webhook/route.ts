@@ -24,7 +24,8 @@ type PaddleCustomData = {
     | "PRO_YEARLY"
     | "PAGES_1000"
     | "PAGES_3000"
-    | "PAGES_5000";
+    | "PAGES_5000"
+    | "QUESTIONS_100";
 
   plan?: "PRO" | null;
 
@@ -34,6 +35,8 @@ type PaddleCustomData = {
     | null;
 
   extraPages?: number | null;
+
+  extraQuestions?: number | null;
 };
 
 type PaddleWebhookData = {
@@ -72,18 +75,61 @@ type PaddleWebhookData = {
     | null;
 };
 
-function getWebhookSecret(): string {
-  const secret =
-    process.env
-      .PADDLE_WEBHOOK_SECRET;
+function getWebhookSecrets(): string[] {
+  const secrets = [
+    process.env.PADDLE_WEBHOOK_SECRET,
+    process.env.PADDLE_SIMULATION_WEBHOOK_SECRET,
+  ].filter(
+    (value): value is string =>
+      Boolean(value?.trim())
+  );
 
-  if (!secret) {
+  const uniqueSecrets =
+    Array.from(
+      new Set(
+        secrets.map(
+          (value) => value.trim()
+        )
+      )
+    );
+
+  if (uniqueSecrets.length === 0) {
     throw new Error(
-      "PADDLE_WEBHOOK_SECRET غير موجود داخل ملف .env"
+      "PADDLE_WEBHOOK_SECRET و PADDLE_SIMULATION_WEBHOOK_SECRET غير موجودين داخل ملف .env"
     );
   }
 
-  return secret;
+  return uniqueSecrets;
+}
+
+async function unmarshalPaddleWebhook(
+  rawBody: string,
+  signature: string
+): Promise<EventEntity> {
+  const secrets =
+    getWebhookSecrets();
+
+  let lastError: unknown = null;
+
+  for (const secret of secrets) {
+    try {
+      return await paddle.webhooks.unmarshal(
+        rawBody,
+        secret,
+        signature
+      );
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (lastError instanceof Error) {
+    throw lastError;
+  }
+
+  throw new Error(
+    "Paddle webhook signature verification failed."
+  );
 }
 
 function toDate(
@@ -148,6 +194,18 @@ function getExtraPagesFromPurchaseType(
       return 0;
   }
 }
+function getExtraQuestionsFromPurchaseType(
+  purchaseType:
+    PaddleCustomData["purchaseType"]
+): number {
+  switch (purchaseType) {
+    case "QUESTIONS_100":
+      return 100;
+
+    default:
+      return 0;
+  }
+}
 
 function isProPurchase(
   purchaseType:
@@ -197,80 +255,219 @@ async function processTransactionCompleted(
   }
 
   const extraPages =
-    getExtraPagesFromPurchaseType(
-      purchaseType
-    );
+  getExtraPagesFromPurchaseType(
+    purchaseType
+  );
 
-  if (extraPages > 0) {
-    await transaction.subscription.upsert({
-      where: {
-        userId,
+if (extraPages > 0) {
+  await transaction.subscription.upsert({
+    where: {
+      userId,
+    },
+
+    create: {
+      userId,
+
+      plan: "FREE",
+
+      monthlyLimit: 0,
+      usedThisMonth: 0,
+      extraCredits: 0,
+
+      pageLimit:
+        FREE_PAGE_LIMIT,
+
+      usedPages: 0,
+
+      extraPages,
+
+      questionLimit:
+        FREE_QUESTION_LIMIT,
+
+      usedQuestions: 0,
+
+      extraQuestions: 0,
+
+      freeTrialUsed:
+        false,
+
+      paddleCustomerId:
+        data.customerId ??
+        null,
+
+      paddleStatus:
+        "active",
+
+      lastPaddleEventAt:
+        occurredAt,
+    },
+
+    update: {
+      extraPages: {
+        increment:
+          extraPages,
       },
 
-      create: {
-        userId,
+      paddleCustomerId:
+        data.customerId ??
+        undefined,
 
-        plan: "FREE",
+      lastPaddleEventAt:
+        occurredAt,
+    },
+  });
 
-        monthlyLimit: 0,
-        usedThisMonth: 0,
-        extraCredits: 0,
+  console.log(
+    `Added ${extraPages} extra pages to user ${userId}`
+  );
 
-        pageLimit:
-          FREE_PAGE_LIMIT,
+  return;
+}
 
-        usedPages: 0,
+const extraQuestions =
+  getExtraQuestionsFromPurchaseType(
+    purchaseType
+  );
 
-        extraPages,
+if (extraQuestions > 0) {
+  await transaction.subscription.upsert({
+    where: {
+      userId,
+    },
 
-        questionLimit:
-          FREE_QUESTION_LIMIT,
+    create: {
+      userId,
 
-        usedQuestions: 0,
+      plan: "FREE",
 
-        extraQuestions: 0,
+      monthlyLimit: 0,
+      usedThisMonth: 0,
+      extraCredits: 0,
 
-        freeTrialUsed:
-          false,
+      pageLimit:
+        FREE_PAGE_LIMIT,
 
-        paddleCustomerId:
-          data.customerId ??
-          null,
+      usedPages: 0,
 
-        paddleStatus:
-          "active",
+      extraPages: 0,
 
-        lastPaddleEventAt:
-          occurredAt,
+      questionLimit:
+        FREE_QUESTION_LIMIT,
+
+      usedQuestions: 0,
+
+      extraQuestions,
+
+      freeTrialUsed:
+        false,
+
+      paddleCustomerId:
+        data.customerId ??
+        null,
+
+      paddleStatus:
+        "active",
+
+      lastPaddleEventAt:
+        occurredAt,
+    },
+
+    update: {
+      extraQuestions: {
+        increment:
+          extraQuestions,
       },
 
-      update: {
-        extraPages: {
-          increment:
-            extraPages,
-        },
+      paddleCustomerId:
+        data.customerId ??
+        undefined,
 
-        paddleCustomerId:
-          data.customerId ??
-          undefined,
+      lastPaddleEventAt:
+        occurredAt,
+    },
+  });
 
-        lastPaddleEventAt:
-          occurredAt,
+  console.log(
+    `Added ${extraQuestions} extra questions to user ${userId}`
+  );
+
+  return;
+}
+
+if (
+  isProPurchase(
+    purchaseType
+  )
+) {
+    const extraQuestions =
+  getExtraQuestionsFromPurchaseType(
+    purchaseType
+  );
+
+if (extraQuestions > 0) {
+  await transaction.subscription.upsert({
+    where: {
+      userId,
+    },
+
+    create: {
+      userId,
+
+      plan: "FREE",
+
+      monthlyLimit: 0,
+      usedThisMonth: 0,
+      extraCredits: 0,
+
+      pageLimit:
+        FREE_PAGE_LIMIT,
+
+      usedPages: 0,
+
+      extraPages: 0,
+
+      questionLimit:
+        FREE_QUESTION_LIMIT,
+
+      usedQuestions: 0,
+
+      extraQuestions,
+
+      freeTrialUsed:
+        false,
+
+      paddleCustomerId:
+        data.customerId ??
+        null,
+
+      paddleStatus:
+        "active",
+
+      lastPaddleEventAt:
+        occurredAt,
+    },
+
+    update: {
+      extraQuestions: {
+        increment:
+          extraQuestions,
       },
-    });
 
-    console.log(
-      `Added ${extraPages} extra pages to user ${userId}`
-    );
+      paddleCustomerId:
+        data.customerId ??
+        undefined,
 
-    return;
-  }
+      lastPaddleEventAt:
+        occurredAt,
+    },
+  });
 
-  if (
-    isProPurchase(
-      purchaseType
-    )
-  ) {
+  console.log(
+    `Added ${extraQuestions} extra questions to user ${userId}`
+  );
+
+  return;
+}
     const billingCycle =
       purchaseType ===
       "PRO_YEARLY"
@@ -635,12 +832,10 @@ async function processSubscriptionEvent(
       pageLimit:
         PRO_PAGE_LIMIT,
 
-      usedPages: 0,
 
       questionLimit:
         PRO_QUESTION_LIMIT,
 
-      usedQuestions: 0,
 
       freeTrialUsed:
         true,
@@ -676,6 +871,111 @@ async function processSubscriptionEvent(
 
   console.log(
     `Synced PRO subscription ${data.id} for user ${userId}`
+  );
+}
+
+
+async function processSubscriptionPastDue(
+  transaction:
+    Prisma.TransactionClient,
+
+  data:
+    PaddleWebhookData,
+
+  occurredAt:
+    Date
+) {
+  const customData =
+    getCustomData(data);
+
+  const userId =
+    customData.userId;
+
+  const subscriptionId =
+    data.id ?? null;
+
+  let existingSubscription:
+    Awaited<
+      ReturnType<
+        typeof transaction.subscription.findUnique
+      >
+    > = null;
+
+  if (userId) {
+    existingSubscription =
+      await transaction.subscription.findUnique({
+        where: {
+          userId,
+        },
+      });
+  }
+
+  if (
+    !existingSubscription &&
+    subscriptionId
+  ) {
+    existingSubscription =
+      await transaction.subscription.findFirst({
+        where: {
+          paddleSubscriptionId:
+            subscriptionId,
+        },
+      });
+  }
+
+  if (!existingSubscription) {
+    console.warn(
+      "PADDLE PAST DUE SUBSCRIPTION NOT FOUND:",
+      {
+        userId,
+        subscriptionId,
+        customData,
+      }
+    );
+
+    return;
+  }
+
+  await transaction.subscription.update({
+    where: {
+      userId:
+        existingSubscription.userId,
+    },
+
+    data: {
+      // Keep the customer on PRO while Paddle is
+      // still trying to recover the payment.
+      // Do NOT reset usage or grant a new allowance here.
+      plan:
+        existingSubscription.plan,
+
+      paddleCustomerId:
+        data.customerId ??
+        undefined,
+
+      paddleSubscriptionId:
+        subscriptionId ??
+        undefined,
+
+      paddlePriceId:
+        getPriceId(data) ??
+        undefined,
+
+      paddleStatus:
+        data.status ??
+        "past_due",
+
+      billingCycle:
+        customData.billingCycle ??
+        undefined,
+
+      lastPaddleEventAt:
+        occurredAt,
+    },
+  });
+
+  console.log(
+    `Marked subscription as past_due for user ${existingSubscription.userId}`
   );
 }
 
@@ -734,6 +1034,14 @@ async function processWebhookEvent(
           );
           break;
 
+        case "subscription.past_due":
+          await processSubscriptionPastDue(
+            transaction,
+            data,
+            occurredAt
+          );
+          break;
+
         default:
           console.log(
             `Ignored Paddle event: ${eventType}`
@@ -780,13 +1088,9 @@ export async function POST(
       );
     }
 
-    const webhookSecret =
-      getWebhookSecret();
-
     const event =
-      await paddle.webhooks.unmarshal(
+      await unmarshalPaddleWebhook(
         rawBody,
-        webhookSecret,
         signature
       );
 

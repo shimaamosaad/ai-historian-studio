@@ -1,6 +1,8 @@
 import fs from "fs/promises";
 import path from "path";
 import { NextResponse } from "next/server";
+import { getDocumentProxy } from "unpdf";
+import * as mammoth from "mammoth";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -15,8 +17,17 @@ const FREE_MAX_FILE_SIZE =
 const PAID_MAX_FILE_SIZE =
   150 * 1024 * 1024;
 
+type SubscriptionPlan =
+  | "FREE"
+  | "PRO"
+  | "ENTERPRISE";
+
+type SupportedDocumentType =
+  | "pdf"
+  | "docx";
+
 function getMaxFileSize(
-  plan: "FREE" | "PRO" | "ENTERPRISE"
+  plan: SubscriptionPlan
 ): number {
   return plan === "FREE"
     ? FREE_MAX_FILE_SIZE
@@ -24,11 +35,207 @@ function getMaxFileSize(
 }
 
 function getMaxFileSizeLabel(
-  plan: "FREE" | "PRO" | "ENTERPRISE"
+  plan: SubscriptionPlan
 ): string {
   return plan === "FREE"
     ? "50 ميجابايت"
     : "150 ميجابايت";
+}
+
+/*
+ * =========================================================
+ * File content validation
+ * =========================================================
+ */
+
+/*
+ * PDF files normally contain the "%PDF-" signature
+ * near the beginning of the file.
+ *
+ * We check the first 1024 bytes instead of relying only
+ * on the extension or browser MIME type.
+ */
+function hasPdfSignature(
+  buffer: Buffer
+): boolean {
+  if (buffer.length < 5) {
+    return false;
+  }
+
+  const header = buffer
+    .subarray(
+      0,
+      Math.min(
+        buffer.length,
+        1024
+      )
+    )
+    .toString(
+      "latin1"
+    );
+
+  return header.includes(
+    "%PDF-"
+  );
+}
+
+/*
+ * DOCX is internally a ZIP archive.
+ *
+ * ZIP files usually start with one of these
+ * PK signatures.
+ */
+function hasZipSignature(
+  buffer: Buffer
+): boolean {
+  if (buffer.length < 4) {
+    return false;
+  }
+
+  const signature =
+    buffer
+      .subarray(0, 4)
+      .toString("hex");
+
+  return (
+    signature ===
+      "504b0304" ||
+    signature ===
+      "504b0506" ||
+    signature ===
+      "504b0708"
+  );
+}
+
+/*
+ * Validate that the uploaded PDF is actually
+ * a readable PDF document.
+ */
+async function validatePdfContent(
+  buffer: Buffer
+): Promise<void> {
+  if (
+    !hasPdfSignature(
+      buffer
+    )
+  ) {
+    throw new Error(
+      "محتوى الملف لا يطابق ملف PDF حقيقي"
+    );
+  }
+
+  let pdf:
+    | Awaited<
+        ReturnType<
+          typeof getDocumentProxy
+        >
+      >
+    | null = null;
+
+  try {
+    pdf =
+      await getDocumentProxy(
+        new Uint8Array(
+          buffer
+        )
+      );
+
+    if (
+      !Number.isInteger(
+        pdf.numPages
+      ) ||
+      pdf.numPages <= 0
+    ) {
+      throw new Error(
+        "PDF_HAS_NO_VALID_PAGES"
+      );
+    }
+  } catch {
+    throw new Error(
+      "ملف PDF تالف أو غير صالح للقراءة"
+    );
+  } finally {
+    if (pdf) {
+      try {
+        await pdf.destroy();
+      } catch {
+        // Ignore cleanup errors.
+      }
+    }
+  }
+}
+
+/*
+ * Validate that the uploaded DOCX is really
+ * a readable Word OpenXML document.
+ *
+ * Checking ZIP alone is not enough because any ZIP
+ * file could otherwise be renamed to .docx.
+ *
+ * mammoth attempts to read the actual DOCX structure.
+ */
+async function validateDocxContent(
+  buffer: Buffer
+): Promise<void> {
+  if (
+    !hasZipSignature(
+      buffer
+    )
+  ) {
+    throw new Error(
+      "محتوى الملف لا يطابق ملف Word (.docx) حقيقي"
+    );
+  }
+
+  try {
+    await mammoth.extractRawText(
+      {
+        buffer,
+      }
+    );
+  } catch {
+    throw new Error(
+      "ملف Word تالف أو ليس مستند DOCX صالحًا"
+    );
+  }
+}
+
+/*
+ * Validate the real content of the uploaded file
+ * and return the detected supported type.
+ */
+async function validateUploadedFile(
+  buffer: Buffer,
+  fileName: string
+): Promise<SupportedDocumentType> {
+  const extension =
+    path
+      .extname(fileName)
+      .toLowerCase();
+
+  if (
+    extension === ".pdf"
+  ) {
+    await validatePdfContent(
+      buffer
+    );
+
+    return "pdf";
+  }
+
+  if (
+    extension === ".docx"
+  ) {
+    await validateDocxContent(
+      buffer
+    );
+
+    return "docx";
+  }
+
+  throw new Error(
+    "يتم دعم ملفات PDF أو Word (.docx) فقط"
+  );
 }
 
 export async function POST(
@@ -39,6 +246,12 @@ export async function POST(
     | null = null;
 
   try {
+    /*
+     * =====================================================
+     * Authentication
+     * =====================================================
+     */
+
     const session =
       await auth();
 
@@ -59,11 +272,19 @@ export async function POST(
     const userId =
       session.user.id;
 
+    /*
+     * =====================================================
+     * Read request
+     * =====================================================
+     */
+
     const formData =
       await request.formData();
 
     const file =
-      formData.get("file");
+      formData.get(
+        "file"
+      );
 
     const projectIdValue =
       formData.get(
@@ -95,7 +316,15 @@ export async function POST(
       );
     }
 
-    if (file.size <= 0) {
+    /*
+     * =====================================================
+     * Basic file validation
+     * =====================================================
+     */
+
+    if (
+      file.size <= 0
+    ) {
       return NextResponse.json(
         {
           error:
@@ -110,23 +339,19 @@ export async function POST(
     const lowerFileName =
       file.name.toLowerCase();
 
-    const isPdf =
-      file.type ===
-        "application/pdf" ||
+    const hasPdfExtension =
       lowerFileName.endsWith(
         ".pdf"
       );
 
-    const isDocx =
-      file.type ===
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    const hasDocxExtension =
       lowerFileName.endsWith(
         ".docx"
       );
 
     if (
-      !isPdf &&
-      !isDocx
+      !hasPdfExtension &&
+      !hasDocxExtension
     ) {
       return NextResponse.json(
         {
@@ -139,16 +364,25 @@ export async function POST(
       );
     }
 
+    /*
+     * =====================================================
+     * Project ownership
+     * =====================================================
+     */
+
     const project =
-      await prisma.project.findFirst({
-        where: {
-          id: projectId,
-          userId,
-        },
-        select: {
-          id: true,
-        },
-      });
+      await prisma.project.findFirst(
+        {
+          where: {
+            id: projectId,
+            userId,
+          },
+
+          select: {
+            id: true,
+          },
+        }
+      );
 
     if (!project) {
       return NextResponse.json(
@@ -161,6 +395,12 @@ export async function POST(
         }
       );
     }
+
+    /*
+     * =====================================================
+     * Subscription validation
+     * =====================================================
+     */
 
     const subscriptionCheck =
       await checkSubscription(
@@ -175,8 +415,10 @@ export async function POST(
           error:
             subscriptionCheck.message ??
             "لا يمكن رفع مستند جديد حاليًا",
+
           reason:
             subscriptionCheck.reason,
+
           subscription:
             subscriptionCheck.subscription ??
             null,
@@ -205,8 +447,10 @@ export async function POST(
             `حجم الملف أكبر من الحد المسموح لباقة ${subscription.plan}. الحد الحالي هو ${getMaxFileSizeLabel(
               subscription.plan
             )}.`,
+
           reason:
             "FILE_SIZE_LIMIT_REACHED",
+
           maxFileSizeBytes:
             maxFileSize,
         },
@@ -216,10 +460,67 @@ export async function POST(
       );
     }
 
+    /*
+     * =====================================================
+     * Read file into memory
+     * =====================================================
+     */
+
+    const fileBuffer =
+      Buffer.from(
+        await file.arrayBuffer()
+      );
+
+    /*
+     * =====================================================
+     * SECURITY:
+     * Validate REAL file content BEFORE writing anything
+     * to storage.
+     * =====================================================
+     */
+
+    let documentType:
+      SupportedDocumentType;
+
+    try {
+      documentType =
+        await validateUploadedFile(
+          fileBuffer,
+          file.name
+        );
+    } catch (
+      validationError
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            validationError instanceof
+            Error
+              ? validationError.message
+              : "الملف غير صالح",
+
+          reason:
+            "INVALID_FILE_CONTENT",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    /*
+     * =====================================================
+     * Private storage
+     * =====================================================
+     *
+     * Only now — after successful content validation —
+     * do we create/save the file.
+     */
+
     const uploadDir =
       path.join(
         process.cwd(),
-        "public",
+        "storage",
         "uploads"
       );
 
@@ -230,6 +531,9 @@ export async function POST(
       }
     );
 
+    /*
+     * Sanitize original filename.
+     */
     const safeOriginalName =
       file.name
         .replace(
@@ -240,7 +544,7 @@ export async function POST(
           /^-+|-+$/g,
           ""
         ) ||
-      "document";
+      `document.${documentType}`;
 
     const safeName =
       `${Date.now()}-${safeOriginalName}`;
@@ -251,57 +555,95 @@ export async function POST(
         safeName
       );
 
-    const fileBuffer =
-      Buffer.from(
-        await file.arrayBuffer()
-      );
-
+    /*
+     * Write validated file.
+     */
     await fs.writeFile(
       filePath,
       fileBuffer
     );
 
+    /*
+     * Remember the physical path.
+     *
+     * If Prisma fails afterwards, catch()
+     * will remove the orphan file.
+     */
     savedFilePath =
       filePath;
 
-    const document =
-      await prisma.document.create({
-        data: {
-          name:
-            file.name,
-          url:
-            `/uploads/${safeName}`,
-          content: "",
-          type:
-            isPdf
-              ? "pdf"
-              : "docx",
-          projectId,
-          processingStatus:
-            "QUEUED",
-          processedPages: 0,
-          totalPages: 0,
-          billedPages: 0,
-          usageSource: null,
-          usageChargedAt:
-            null,
-          processingError:
-            null,
-        },
-      });
+    /*
+     * =====================================================
+     * Database
+     * =====================================================
+     */
 
-    savedFilePath = null;
+    const document =
+      await prisma.document.create(
+        {
+          data: {
+            name:
+              file.name,
+
+            url:
+              `/storage/uploads/${safeName}`,
+
+            content:
+              "",
+
+            type:
+              documentType,
+
+            projectId,
+
+            processingStatus:
+              "QUEUED",
+
+            processedPages:
+              0,
+
+            totalPages:
+              0,
+
+            billedPages:
+              0,
+
+            usageSource:
+              null,
+
+            usageChargedAt:
+              null,
+
+            processingError:
+              null,
+          },
+        }
+      );
+
+    /*
+     * Database record now exists successfully,
+     * so catch() must no longer delete the file.
+     */
+    savedFilePath =
+      null;
+
+    /*
+     * =====================================================
+     * Response
+     * =====================================================
+     */
 
     return NextResponse.json(
       {
         message:
-          "تم رفع المستند بنجاح. سيتم حساب عدد الصفحات والتحقق من رصيد المعالجة قبل بدء التحليل.",
+          "تم رفع المستند والتحقق من سلامة محتواه بنجاح. سيتم حساب عدد الصفحات والتحقق من رصيد المعالجة قبل بدء التحليل.",
 
         document,
 
         limits: {
           maxFileSizeBytes:
             maxFileSize,
+
           maxFileSizeLabel:
             getMaxFileSizeLabel(
               subscription.plan
@@ -311,24 +653,34 @@ export async function POST(
         subscription: {
           plan:
             subscription.plan,
+
           pageLimit:
             subscription.pageLimit,
+
           usedPages:
             subscription.usedPages,
+
           remainingPages:
             subscription.remainingPages,
+
           extraPages:
             subscription.extraPages,
+
           totalRemainingPages:
             subscription.totalRemainingPages,
+
           questionLimit:
             subscription.questionLimit,
+
           usedQuestions:
             subscription.usedQuestions,
+
           remainingQuestions:
             subscription.remainingQuestions,
+
           extraQuestions:
             subscription.extraQuestions,
+
           totalRemainingQuestions:
             subscription.totalRemainingQuestions,
         },
@@ -344,6 +696,12 @@ export async function POST(
       }
     );
   } catch (error) {
+    /*
+     * =====================================================
+     * Cleanup orphan file
+     * =====================================================
+     */
+
     if (savedFilePath) {
       try {
         await fs.unlink(

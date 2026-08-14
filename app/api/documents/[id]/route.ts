@@ -360,28 +360,104 @@ async function deletePhysicalFile(
       .split("?")[0]
       .replace(/^\/+/, "");
 
-    const publicDirectory =
+    const storageUploadsDirectory =
       path.resolve(
         process.cwd(),
-        "public"
+        "storage",
+        "uploads"
       );
+
+    const publicUploadsDirectory =
+      path.resolve(
+        process.cwd(),
+        "public",
+        "uploads"
+      );
+
+    let baseDirectory:
+      | string
+      | null = null;
+
+    let relativeFilePath:
+      | string
+      | null = null;
+
+    /*
+     * الملفات الجديدة الخاصة:
+     * /storage/uploads/filename.pdf
+     */
+    if (
+      cleanUrl.startsWith(
+        "storage/uploads/"
+      )
+    ) {
+      baseDirectory =
+        storageUploadsDirectory;
+
+      relativeFilePath =
+        cleanUrl.slice(
+          "storage/uploads/".length
+        );
+    }
+
+    /*
+     * الملفات القديمة العامة:
+     * /uploads/filename.pdf
+     *
+     * لأن الملفات القديمة كانت محفوظة داخل:
+     * public/uploads
+     */
+    else if (
+      cleanUrl.startsWith(
+        "uploads/"
+      )
+    ) {
+      baseDirectory =
+        publicUploadsDirectory;
+
+      relativeFilePath =
+        cleanUrl.slice(
+          "uploads/".length
+        );
+    }
+
+    /*
+     * نرفض أي مسار غير معروف.
+     */
+    if (
+      !baseDirectory ||
+      !relativeFilePath
+    ) {
+      console.warn(
+        "Skipped deleting document file with unsupported path:",
+        documentUrl
+      );
+
+      return;
+    }
 
     const resolvedFilePath =
       path.resolve(
-        publicDirectory,
-        cleanUrl
+        baseDirectory,
+        relativeFilePath
       );
 
-    const isInsidePublic =
-      resolvedFilePath ===
-        publicDirectory ||
+    /*
+     * حماية من Path Traversal.
+     *
+     * لا نسمح بالحذف إلا إذا كان الملف
+     * داخل مجلد uploads المسموح به فعلًا.
+     */
+    const isInsideAllowedDirectory =
       resolvedFilePath.startsWith(
-        `${publicDirectory}${path.sep}`
+        `${baseDirectory}${path.sep}`
       );
 
-    if (!isInsidePublic) {
+    if (
+      !isInsideAllowedDirectory
+    ) {
       console.warn(
-        "Skipped deleting a file outside the public directory:",
+        "Skipped deleting a file outside the allowed upload directory:",
         resolvedFilePath
       );
 

@@ -17,6 +17,7 @@ const checkoutSchema = z.object({
     "PAGES_1000",
     "PAGES_3000",
     "PAGES_5000",
+    "QUESTIONS_100",
   ]),
 });
 
@@ -41,6 +42,10 @@ type CheckoutProduct = {
   extraPages:
     | number
     | null;
+
+  extraQuestions:
+    | number
+    | null;
 };
 
 function getRequiredEnv(
@@ -50,6 +55,7 @@ function getRequiredEnv(
     | "PADDLE_PRICE_PAGES_1000"
     | "PADDLE_PRICE_PAGES_3000"
     | "PADDLE_PRICE_PAGES_5000"
+    | "PADDLE_PRICE_QUESTIONS_100"
 ): string {
   const value =
     process.env[name];
@@ -84,6 +90,9 @@ function getCheckoutProduct(
 
         extraPages:
           null,
+
+        extraQuestions:
+          null,
       };
 
     case "PRO_YEARLY":
@@ -101,6 +110,9 @@ function getCheckoutProduct(
           "YEARLY",
 
         extraPages:
+          null,
+
+        extraQuestions:
           null,
       };
 
@@ -120,6 +132,9 @@ function getCheckoutProduct(
 
         extraPages:
           1000,
+
+        extraQuestions:
+          null,
       };
 
     case "PAGES_3000":
@@ -138,6 +153,9 @@ function getCheckoutProduct(
 
         extraPages:
           3000,
+
+        extraQuestions:
+          null,
       };
 
     case "PAGES_5000":
@@ -156,11 +174,35 @@ function getCheckoutProduct(
 
         extraPages:
           5000,
+
+        extraQuestions:
+          null,
+      };
+
+    case "QUESTIONS_100":
+      return {
+        priceId:
+          getRequiredEnv(
+            "PADDLE_PRICE_QUESTIONS_100"
+          ),
+
+        quantity: 1,
+
+        plan: null,
+
+        billingCycle:
+          null,
+
+        extraPages:
+          null,
+
+        extraQuestions:
+          100,
       };
   }
 }
 
-function isExtraPagesPurchase(
+function isProAddonPurchase(
   purchaseType:
     PurchaseType
 ) {
@@ -170,7 +212,9 @@ function isExtraPagesPurchase(
     purchaseType ===
       "PAGES_3000" ||
     purchaseType ===
-      "PAGES_5000"
+      "PAGES_5000" ||
+    purchaseType ===
+      "QUESTIONS_100"
   );
 }
 
@@ -217,7 +261,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "نوع الاشتراك أو حزمة الصفحات المطلوبة غير صحيح.",
+            "نوع الاشتراك أو الحزمة المطلوبة غير صحيح.",
         },
         {
           status: 400,
@@ -260,11 +304,11 @@ export async function POST(
     }
 
     // ==============================
-    // الصفحات الإضافية متاحة لـ PRO فقط
+    // الإضافات متاحة لـ PRO فقط
     // ==============================
 
     if (
-      isExtraPagesPurchase(
+      isProAddonPurchase(
         purchaseType
       )
     ) {
@@ -275,7 +319,7 @@ export async function POST(
         return NextResponse.json(
           {
             error:
-              "شراء الصفحات الإضافية متاح لمشتركي PRO فقط. يرجى الترقية إلى الخطة الاحترافية أولًا.",
+              "شراء الحزم الإضافية متاح لمشتركي PRO فقط. يرجى الترقية إلى الخطة الاحترافية أولًا.",
             reason:
               "PRO_REQUIRED",
           },
@@ -296,7 +340,7 @@ export async function POST(
         return NextResponse.json(
           {
             error:
-              "انتهت صلاحية اشتراك PRO. يرجى تجديد الاشتراك قبل شراء صفحات إضافية.",
+              "انتهت صلاحية اشتراك PRO. يرجى تجديد الاشتراك قبل شراء حزم إضافية.",
             reason:
               "SUBSCRIPTION_EXPIRED",
           },
@@ -374,6 +418,9 @@ export async function POST(
 
           extraPages:
             product.extraPages,
+
+          extraQuestions:
+            product.extraQuestions,
         },
       },
     });

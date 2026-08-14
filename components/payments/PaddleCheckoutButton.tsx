@@ -9,7 +9,8 @@ export type PurchaseType =
   | "PRO_YEARLY"
   | "PAGES_1000"
   | "PAGES_3000"
-  | "PAGES_5000";
+  | "PAGES_5000"
+  | "QUESTIONS_100";
 
 type CheckoutResponse = {
   checkout?: {
@@ -31,6 +32,7 @@ type CheckoutResponse = {
         | "YEARLY"
         | null;
       extraPages: number | null;
+      extraQuestions: number | null;
     };
   };
 
