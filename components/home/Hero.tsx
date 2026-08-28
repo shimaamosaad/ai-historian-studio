@@ -76,13 +76,57 @@ export default async function Hero() {
 
       <header className="relative z-30 border-b border-white/[0.07] bg-[#020713]/92 backdrop-blur-2xl">
         <div className="mx-auto flex h-[68px] max-w-[1380px] items-center gap-3 px-4 lg:px-6">
-          <button
-            type="button"
-            aria-label="فتح القائمة"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-400/35 bg-blue-500/[0.05] text-blue-300 transition hover:bg-blue-500/10"
-          >
-            <Menu className="h-6 w-6" />
-          </button>
+          <details className="group relative shrink-0 xl:hidden">
+            <summary
+              aria-label="فتح القائمة"
+              className="flex h-11 w-11 cursor-pointer list-none items-center justify-center rounded-xl border border-blue-400/35 bg-blue-500/[0.05] text-blue-300 transition hover:bg-blue-500/10 [&::-webkit-details-marker]:hidden"
+            >
+              <Menu className="h-6 w-6" />
+            </summary>
+
+            <div className="absolute right-0 top-14 z-50 w-64 overflow-hidden rounded-2xl border border-blue-400/20 bg-[#061122]/98 p-3 shadow-2xl backdrop-blur-xl">
+              <nav className="flex flex-col gap-1 text-right">
+                <Link href="/" className="rounded-xl px-4 py-3 text-sm font-black text-blue-300 hover:bg-blue-500/10">
+                  الرئيسية
+                </Link>
+                <a href="#platform" className="rounded-xl px-4 py-3 text-sm font-bold text-slate-200 hover:bg-white/5">
+                  المنصة
+                </a>
+                <Link href="/projects" className="rounded-xl px-4 py-3 text-sm font-bold text-slate-200 hover:bg-white/5">
+                  المشاريع
+                </Link>
+                <a href="#domains" className="rounded-xl px-4 py-3 text-sm font-bold text-slate-200 hover:bg-white/5">
+                  التخصصات
+                </a>
+                <a href="#pricing" className="rounded-xl px-4 py-3 text-sm font-bold text-slate-200 hover:bg-white/5">
+                  الأسعار
+                </a>
+
+                {session?.user ? (
+                  <>
+                    <div className="my-2 border-t border-white/10" />
+                    <Link href="/projects" className="rounded-xl px-4 py-3 text-sm font-black text-blue-200 hover:bg-blue-500/10">
+                      مشاريعي
+                    </Link>
+                    <Link href="/subscription" className="rounded-xl px-4 py-3 text-sm font-black text-amber-200 hover:bg-amber-400/10">
+                      اشتراكي
+                    </Link>
+                    <LogoutButton />
+                  </>
+                ) : (
+                  <>
+                    <div className="my-2 border-t border-white/10" />
+                    <Link href="/login" className="rounded-xl px-4 py-3 text-sm font-black text-blue-200 hover:bg-blue-500/10">
+                      تسجيل الدخول
+                    </Link>
+                    <Link href="/register" className="rounded-xl bg-gradient-to-l from-[#ffe08a] via-[#e9a62f] to-[#bd6c0d] px-4 py-3 text-center text-sm font-black text-[#1c1204]">
+                      ابدأ مجانًا
+                    </Link>
+                  </>
+                )}
+              </nav>
+            </div>
+          </details>
 
           <Link href="/" className="flex shrink-0 items-center gap-4">
             <span className="bg-gradient-to-b from-[#ffe79b] via-[#eba62e] to-[#a85c08] bg-clip-text text-[3.4rem] font-black leading-none text-transparent">
@@ -148,13 +192,13 @@ export default async function Hero() {
           <button
             type="button"
             aria-label="الإشعارات"
-            className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-400/20 bg-blue-500/[0.035] text-blue-300 md:flex"
+            className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-400/20 bg-blue-500/[0.035] text-blue-300 xl:flex"
           >
             <Bell className="h-5 w-5" />
           </button>
 
           {session?.user ? (
-            <div className="hidden shrink-0 items-center gap-2 md:flex">
+            <div className="hidden shrink-0 items-center gap-2 xl:flex">
               <Link
                 href="/projects"
                 className="inline-flex items-center gap-2 rounded-xl border border-blue-400/45 bg-blue-500/[0.07] px-3 py-2 text-sm font-black text-blue-200 transition hover:bg-blue-500/12"
@@ -173,7 +217,7 @@ export default async function Hero() {
               <LogoutButton />
             </div>
           ) : (
-            <div className="hidden shrink-0 items-center gap-2 md:flex">
+            <div className="hidden shrink-0 items-center gap-2 xl:flex">
               <Link
                 href="/login"
                 className="rounded-xl border border-blue-400/35 bg-blue-500/[0.07] px-4 py-3 text-sm font-black text-blue-200 transition hover:bg-blue-500/[0.12]"
@@ -193,8 +237,8 @@ export default async function Hero() {
       </header>
 
       <div dir="ltr"
-        className="relative z-10 mx-auto grid  max-w-[1380px] items-start gap-10 px-5 pb-14 pt-6 lg:grid-cols-[0.95fr_1.05fr] lg:px-8 lg:pb-8 lg:pt-0">
-        <div dir="rtl" className="order-2 self-start pt-3 lg:order-1 lg:pt-0">
+        className="relative z-10 mx-auto grid  max-w-[1380px] items-start gap-10 px-5 pb-14 pt-2 lg:grid-cols-[0.95fr_1.05fr] lg:px-8 lg:pb-8 lg:pt-0">
+        <div dir="rtl" className="order-1 self-start pt-0 lg:order-1 lg:pt-0">
           <div className="relative w-full max-w-[510px]">
             <div className="absolute inset-8 rounded-full bg-amber-400/10 blur-[75px]" />
 
@@ -204,18 +248,18 @@ export default async function Hero() {
               width={320}
               height={217}
               priority
-              className="relative h-auto w-full max-w-[320px] object-contain drop-shadow-[0_18px_35px_rgba(218,145,34,0.18)]"
+              className="relative h-auto w-full max-w-[200px] object-contain drop-shadow-[0_18px_35px_rgba(218,145,34,0.18)] sm:max-w-[280px] lg:max-w-[320px]"
             />
           </div>
 
-          <h1 className="mt-4 max-w-2xl text-3xl font-black leading-[1.18] tracking-tight md:text-4xl xl:text-5xl">
+          <h1 className="mt-3 max-w-2xl text-[2rem] font-black leading-[1.22] tracking-tight sm:text-3xl md:text-4xl xl:text-5xl">
             أول منصة عربية
             <span className="mt-0 block bg-gradient-to-l from-[#ffe7a3] via-[#f3b84b] to-[#c97a17] bg-clip-text text-transparent">
               للباحث الذكي
             </span>
           </h1>
 
-          <p className="mt-4 max-w-3xl text-lg leading-9 text-slate-300 md:text-xl">
+          <p className="mt-3 max-w-3xl text-base leading-8 text-slate-300 sm:text-lg md:text-xl md:leading-9">
   ارفع وثيقتك التاريخية أو الأكاديمية، وسيحللها أثر ويستخرج
   الشخصيات والأماكن والأحداث والعلاقات، ثم يبني تقريرًا علميًا
   وشبكة معرفية وتسلسلًا زمنيًا خلال دقائق.
@@ -227,9 +271,9 @@ export default async function Hero() {
               return (
                 <div
                   key={feature.title}
-                  className="group flex flex-col items-center rounded-2xl border border-blue-400/22 bg-[#061225]/74 px-3 py-4 text-center backdrop-blur-md transition duration-300 hover:-translate-y-1.5 hover:border-blue-300/55 hover:bg-blue-500/[0.10] hover:shadow-[0_14px_36px_rgba(37,99,235,.14)]"
+                  className="group flex flex-col items-center rounded-2xl border border-blue-400/22 bg-[#061225]/74 px-3 py-3 text-center backdrop-blur-md transition duration-300 hover:-translate-y-1.5 hover:border-blue-300/55 hover:bg-blue-500/[0.10] hover:shadow-[0_14px_36px_rgba(37,99,235,.14)]"
                 >
-                  <span className="flex h-12 w-12 items-center justify-center rounded-full border border-blue-400/45 bg-blue-500/[0.08] text-blue-300">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full border border-blue-400/45 bg-blue-500/[0.08] text-blue-300 sm:h-12 sm:w-12">
                     <Icon className="h-6 w-6" />
                   </span>
                   <span className="mt-3 text-sm font-bold leading-6 text-slate-200">
@@ -274,7 +318,7 @@ export default async function Hero() {
 </div>
         </div>
 
-        <div dir="rtl" className="order-1 lg:order-2 lg:scale-[0.92] lg:origin-top">
+        <div dir="rtl" className="order-2 lg:order-2 lg:scale-[0.92] lg:origin-top">
           <div className="relative mx-auto mt-6 max-w-[820px]">
             <div className="absolute -inset-8 rounded-[52px] bg-blue-500/[0.08] blur-[75px]" />
             <div className="absolute -bottom-10 left-[8%] right-[8%] h-16 rounded-[50%] bg-black/90 blur-3xl" />
