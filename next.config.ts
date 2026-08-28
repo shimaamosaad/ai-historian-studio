@@ -1,10 +1,17 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // pdf-to-img resolves bundled PDF.js assets through Node's createRequire().
-  // Keep it external so that resolution happens at runtime instead of being
-  // transformed into a Turbopack module id during the production build.
-  serverExternalPackages: ["pdf-to-img"],
+  serverExternalPackages: [
+    "pdf-to-img",
+    "@napi-rs/canvas",
+  ],
+
+  outputFileTracingIncludes: {
+    "/api/documents/*/process": [
+      "./node_modules/@napi-rs/canvas/**/*",
+      "./node_modules/@napi-rs/canvas-linux-x64-gnu/**/*",
+    ],
+  },
 };
 
 export default nextConfig;

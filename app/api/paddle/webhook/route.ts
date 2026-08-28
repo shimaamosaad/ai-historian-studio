@@ -563,7 +563,8 @@ if (extraQuestions > 0) {
         startsAt:
           new Date(),
 
-        expiresAt,
+        expiresAt:
+          expiresAt ?? undefined,
 
         paddleCustomerId:
           data.customerId ??

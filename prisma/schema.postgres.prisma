@@ -1,0 +1,273 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("NEON_DATABASE_URL")
+}
+
+enum Plan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+model User {
+  id       String  @id @default(cuid())
+  name     String?
+  email    String  @unique
+  password String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projects     Project[]
+  subscription Subscription?
+}
+
+model Subscription {
+  id Int @id @default(autoincrement())
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  plan Plan @default(FREE)
+
+  // النظام القديم - مؤقتًا لحين اكتمال النقل
+  monthlyLimit  Int @default(25)
+  usedThisMonth Int @default(0)
+  extraCredits  Int @default(0)
+
+  // ==============================
+  // نظام رصيد الصفحات الجديد
+  // ==============================
+
+  // إجمالي الصفحات المتاحة في الفترة الحالية
+  pageLimit Int @default(500)
+
+  // الصفحات التي تمت معالجتها
+  usedPages Int @default(0)
+
+  // صفحات إضافية تم شراؤها
+  extraPages Int @default(0)
+
+  // ==============================
+  // نظام أسئلة الذكاء الاصطناعي
+  // ==============================
+
+  // عدد الأسئلة المتاحة
+  questionLimit Int @default(10)
+
+  // عدد الأسئلة المستخدمة
+  usedQuestions Int @default(0)
+
+  // أسئلة إضافية تم شراؤها
+  extraQuestions Int @default(0)
+
+  // ==============================
+  // المجاني مرة واحدة فقط
+  // ==============================
+
+  freeTrialUsed Boolean @default(false)
+
+  startsAt  DateTime  @default(now())
+  expiresAt DateTime?
+
+  paddleCustomerId     String?   @unique
+  paddleSubscriptionId String?   @unique
+  paddlePriceId        String?
+  paddleStatus         String?
+  billingCycle         String?
+  lastPaddleEventAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Project {
+  id          Int    @id @default(autoincrement())
+  title       String
+  description String
+  period      String
+
+  summary String?
+  userId  String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  documents       Document[]
+  projectEntities ProjectEntity[]
+
+  conversations ProjectConversation[]
+}
+
+model Document {
+  id      Int    @id @default(autoincrement())
+  name    String
+  url     String
+  content String
+  type    String
+
+  summary  String?
+  entities String?
+
+  processingStatus      String    @default("COMPLETED")
+  processedPages        Int       @default(0)
+  totalPages            Int       @default(0)
+  billedPages           Int       @default(0)
+  usageSource           String?
+  usageChargedAt        DateTime?
+  processingError       String?
+  sectionAnalysisStatus String    @default("PENDING")
+  processedSections     Int       @default(0)
+  totalSections         Int       @default(0)
+  sectionAnalysisError  String?
+  createdAt             DateTime  @default(now())
+
+  projectId Int
+  project   Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sections  DocumentSection[]
+
+  conversations ProjectConversation[]
+}
+
+model DocumentSection {
+  id Int @id @default(autoincrement())
+
+  sectionIndex Int
+  startPage    Int
+  endPage      Int
+
+  content  String
+  summary  String?
+  analysis String?
+
+  people    String?
+  places    String?
+  events    String?
+  relations String?
+  keywords  String?
+
+  processingStatus String  @default("PENDING")
+  processingError  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  documentId Int
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, sectionIndex])
+  @@index([documentId])
+  @@index([processingStatus])
+}
+
+model Entity {
+  id Int @id @default(autoincrement())
+
+  name String
+  slug String @unique
+  type String
+
+  summary     String?
+  description String?
+
+  metadata String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projectEntities ProjectEntity[]
+
+  outgoingRelations EntityRelation[] @relation("SourceEntity")
+  incomingRelations EntityRelation[] @relation("TargetEntity")
+}
+
+model ProjectEntity {
+  id Int @id @default(autoincrement())
+
+  projectId Int
+  entityId  Int
+
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  entity  Entity  @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, entityId])
+}
+
+model EntityRelation {
+  id Int @id @default(autoincrement())
+
+  sourceId Int
+  targetId Int
+
+  relation String
+
+  confidence Float @default(1)
+
+  source Entity @relation("SourceEntity", fields: [sourceId], references: [id], onDelete: Cascade)
+  target Entity @relation("TargetEntity", fields: [targetId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([sourceId, relation, targetId], name: "sourceId_relation_targetId")
+  @@index([sourceId])
+  @@index([targetId])
+}
+
+model ProjectConversation {
+  id Int @id @default(autoincrement())
+
+  projectId Int
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  documentId Int?
+  document   Document? @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  title String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages ProjectMessage[]
+
+  @@index([projectId])
+  @@index([documentId])
+  @@index([updatedAt])
+}
+
+model ProjectMessage {
+  id Int @id @default(autoincrement())
+
+  conversationId Int
+  conversation   ProjectConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  role    String
+  content String
+
+  confidence          Int?
+  sourceDocumentCount Int?
+  metadata            String?
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId])
+  @@index([createdAt])
+}
+
+model PaddleWebhookEvent {
+  id Int @id @default(autoincrement())
+
+  eventId   String @unique
+  eventType String
+
+  occurredAt  DateTime
+  processedAt DateTime @default(now())
+
+  @@index([eventType])
+  @@index([occurredAt])
+}

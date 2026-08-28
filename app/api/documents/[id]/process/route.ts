@@ -4,6 +4,7 @@ import {
   NextRequest,
   NextResponse,
 } from "next/server";
+import { get } from "@vercel/blob";
 import {
   createWorker,
   PSM,
@@ -815,6 +816,61 @@ async function completeDocumentProcessing({
     documentId
   );
 }
+async function loadDocumentBuffer(
+  documentUrl: string
+): Promise<Buffer> {
+  if (
+    documentUrl.startsWith("https://") ||
+    documentUrl.startsWith("http://")
+  ) {
+    const blob = await get(
+      documentUrl,
+      {
+        access: "private",
+      }
+    );
+
+    if (!blob) {
+      throw new Error(
+        "تعذر العثور على ملف المستند في Vercel Blob."
+      );
+    }
+
+    if (blob.statusCode !== 200) {
+  throw new Error(
+    "تعذر قراءة ملف المستند من Vercel Blob."
+  );
+}
+
+const arrayBuffer =
+  await new Response(
+    blob.stream
+  ).arrayBuffer();
+
+return Buffer.from(
+  arrayBuffer
+);
+  }
+
+  const normalizedUrl =
+    documentUrl.replace(/^\//, "");
+
+  const filePath =
+    normalizedUrl.startsWith("storage/")
+      ? path.join(
+          process.cwd(),
+          normalizedUrl
+        )
+      : path.join(
+          process.cwd(),
+          "public",
+          normalizedUrl
+        );
+
+  return fs.readFile(
+    filePath
+  );
+}
 
 export async function POST(
   request: NextRequest,
@@ -936,23 +992,10 @@ export async function POST(
       );
     }
 
-    const normalizedUrl =
-      document.url.replace(/^\//, "");
-
-    const filePath =
-      normalizedUrl.startsWith("storage/")
-        ? path.join(
-            process.cwd(),
-            normalizedUrl
-          )
-        : path.join(
-            process.cwd(),
-            "public",
-            normalizedUrl
-          );
-
     const buffer =
-      await fs.readFile(filePath);
+  await loadDocumentBuffer(
+    document.url
+  );
 
     const documentType =
       document.type?.toLowerCase() ?? "";

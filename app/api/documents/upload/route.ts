@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { NextResponse } from "next/server";
+import { put, del } from "@vercel/blob";
 import { getDocumentProxy } from "unpdf";
 import * as mammoth from "mammoth";
 
@@ -154,16 +155,8 @@ async function validatePdfContent(
     throw new Error(
       "ملف PDF تالف أو غير صالح للقراءة"
     );
-  } finally {
-    if (pdf) {
-      try {
-        await pdf.destroy();
-      } catch {
-        // Ignore cleanup errors.
-      }
-    }
+  } 
   }
-}
 
 /*
  * Validate that the uploaded DOCX is really
@@ -241,9 +234,9 @@ async function validateUploadedFile(
 export async function POST(
   request: Request
 ) {
-  let savedFilePath:
-    | string
-    | null = null;
+ let savedBlobUrl:
+  | string
+  | null = null;
 
   try {
     /*
@@ -517,61 +510,43 @@ export async function POST(
      * do we create/save the file.
      */
 
-    const uploadDir =
-      path.join(
-        process.cwd(),
-        "storage",
-        "uploads"
-      );
-
-    await fs.mkdir(
-      uploadDir,
-      {
-        recursive: true,
-      }
-    );
-
-    /*
-     * Sanitize original filename.
-     */
     const safeOriginalName =
-      file.name
-        .replace(
-          /[^\w.\-\u0600-\u06FF]+/gu,
-          "-"
-        )
-        .replace(
-          /^-+|-+$/g,
-          ""
-        ) ||
-      `document.${documentType}`;
+  file.name
+    .replace(
+      /[^\w.\-\u0600-\u06FF]+/gu,
+      "-"
+    )
+    .replace(
+      /^-+|-+$/g,
+      ""
+    ) ||
+  `document.${documentType}`;
 
-    const safeName =
-      `${Date.now()}-${safeOriginalName}`;
+const safeName =
+  `${Date.now()}-${safeOriginalName}`;
 
-    const filePath =
-      path.join(
-        uploadDir,
-        safeName
-      );
+const blobPath =
+  `documents/${userId}/${safeName}`;
 
-    /*
-     * Write validated file.
-     */
-    await fs.writeFile(
-      filePath,
-      fileBuffer
-    );
+const blob =
+  await put(
+    blobPath,
+    fileBuffer,
+    {
+      access: "private",
+      addRandomSuffix: false,
+      contentType:
+        documentType === "pdf"
+          ? "application/pdf"
+          : "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    }
+  );
 
-    /*
-     * Remember the physical path.
-     *
-     * If Prisma fails afterwards, catch()
-     * will remove the orphan file.
-     */
-    savedFilePath =
-      filePath;
+const storedUrl =
+  blob.url;
 
+  savedBlobUrl =
+  storedUrl;
     /*
      * =====================================================
      * Database
@@ -585,8 +560,8 @@ export async function POST(
             name:
               file.name,
 
-            url:
-              `/storage/uploads/${safeName}`,
+           url:
+  storedUrl,
 
             content:
               "",
@@ -624,8 +599,8 @@ export async function POST(
      * Database record now exists successfully,
      * so catch() must no longer delete the file.
      */
-    savedFilePath =
-      null;
+    savedBlobUrl =
+  null;
 
     /*
      * =====================================================
@@ -702,30 +677,18 @@ export async function POST(
      * =====================================================
      */
 
-    if (savedFilePath) {
-      try {
-        await fs.unlink(
-          savedFilePath
-        );
-      } catch (
-        deleteError
-      ) {
-        const fileError =
-          deleteError as {
-            code?: string;
-          };
-
-        if (
-          fileError.code !==
-          "ENOENT"
-        ) {
-          console.error(
-            "Failed to delete uploaded file:",
-            deleteError
-          );
-        }
-      }
-    }
+    if (savedBlobUrl) {
+  try {
+    await del(
+      savedBlobUrl
+    );
+  } catch (deleteError) {
+    console.error(
+      "Failed to delete uploaded blob:",
+      deleteError
+    );
+  }
+}
 
     console.error(
       "Document upload error:",

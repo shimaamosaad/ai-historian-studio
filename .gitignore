@@ -64,3 +64,5 @@ prisma/dev-backup-before-memory.db
 /prisma/dev.db-journal
 /prisma/dev.db-shm
 /prisma/dev.db-wal
+.vercel
+.env*
