@@ -22,7 +22,7 @@ export default function Navbar() {
 
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
-            className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
+            className="cursor-pointer rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
           >
             تسجيل الخروج
           </button>

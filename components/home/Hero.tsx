@@ -53,7 +53,7 @@ export default async function Hero() {
   return (
     <section
       dir="rtl"
-      className="relative min-h-screen overflow-hidden bg-[#020712] text-white"
+      className="relative overflow-hidden bg-[#020712] text-white"
     >
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <Image
@@ -75,7 +75,7 @@ export default async function Hero() {
       </div>
 
       <header className="relative z-30 border-b border-white/[0.07] bg-[#020713]/92 backdrop-blur-2xl">
-        <div className="mx-auto flex h-[78px] max-w-[1536px] items-center gap-5 px-5 lg:px-8">
+        <div className="mx-auto flex h-[68px] max-w-[1380px] items-center gap-3 px-4 lg:px-6">
           <button
             type="button"
             aria-label="فتح القائمة"
@@ -135,7 +135,7 @@ export default async function Hero() {
             </a>
           </nav>
 
-          <div className="mr-auto hidden w-full max-w-[325px] items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.025] px-4 py-3 lg:flex">
+          <div className="mr-auto hidden w-full max-w-[250px] items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.025] px-3 py-2 2xl:flex">
             <Search className="h-5 w-5 shrink-0 text-slate-300" />
             <span className="truncate text-sm text-slate-500">
               ابحث في المشاريع والمستندات...
@@ -157,7 +157,7 @@ export default async function Hero() {
             <div className="hidden shrink-0 items-center gap-2 md:flex">
               <Link
                 href="/projects"
-                className="inline-flex items-center gap-2 rounded-xl border border-blue-400/45 bg-blue-500/[0.07] px-4 py-3 text-sm font-black text-blue-200 transition hover:bg-blue-500/12"
+                className="inline-flex items-center gap-2 rounded-xl border border-blue-400/45 bg-blue-500/[0.07] px-3 py-2 text-sm font-black text-blue-200 transition hover:bg-blue-500/12"
               >
                 <Sparkles className="h-4 w-4" />
                 مشاريعي
@@ -165,7 +165,7 @@ export default async function Hero() {
 
               <Link
                 href="/subscription"
-                className="inline-flex items-center gap-2 rounded-xl border border-amber-400/35 bg-amber-400/[0.07] px-4 py-3 text-sm font-black text-amber-200 transition hover:bg-amber-400/[0.12]"
+                className="inline-flex items-center gap-2 rounded-xl border border-amber-400/35 bg-amber-400/[0.07] px-3 py-2 text-sm font-black text-amber-200 transition hover:bg-amber-400/[0.12]"
               >
                 اشتراكي
               </Link>
@@ -193,7 +193,7 @@ export default async function Hero() {
       </header>
 
       <div dir="ltr"
-        className="relative z-10 mx-auto grid max-w-[1536px] items-start gap-10 px-5 pb-14 pt-6 lg:grid-cols-[0.84fr_1.16fr] lg:px-8 lg:pb-8 lg:pt-0">
+        className="relative z-10 mx-auto grid  max-w-[1380px] items-start gap-10 px-5 pb-14 pt-6 lg:grid-cols-[0.95fr_1.05fr] lg:px-8 lg:pb-8 lg:pt-0">
         <div dir="rtl" className="order-2 self-start pt-3 lg:order-1 lg:pt-0">
           <div className="relative w-full max-w-[510px]">
             <div className="absolute inset-8 rounded-full bg-amber-400/10 blur-[75px]" />
@@ -201,14 +201,14 @@ export default async function Hero() {
             <Image
               src="/images/athar-logo.png"
               alt="أثر ATHAR AI"
-              width={450}
-              height={305}
+              width={320}
+              height={217}
               priority
-              className="relative h-auto w-full max-w-[450px] object-contain drop-shadow-[0_18px_35px_rgba(218,145,34,0.18)]"
+              className="relative h-auto w-full max-w-[320px] object-contain drop-shadow-[0_18px_35px_rgba(218,145,34,0.18)]"
             />
           </div>
 
-          <h1 className="mt-8 max-w-2xl text-5xl font-black leading-[1.18] tracking-tight md:text-6xl xl:text-7xl">
+          <h1 className="mt-4 max-w-2xl text-3xl font-black leading-[1.18] tracking-tight md:text-4xl xl:text-5xl">
             أول منصة عربية
             <span className="mt-0 block bg-gradient-to-l from-[#ffe7a3] via-[#f3b84b] to-[#c97a17] bg-clip-text text-transparent">
               للباحث الذكي
@@ -274,8 +274,8 @@ export default async function Hero() {
 </div>
         </div>
 
-        <div dir="rtl" className="order-1 lg:order-2">
-          <div className="relative mx-auto mt-8 max-w-[950px]">
+        <div dir="rtl" className="order-1 lg:order-2 lg:scale-[0.92] lg:origin-top">
+          <div className="relative mx-auto mt-6 max-w-[820px]">
             <div className="absolute -inset-8 rounded-[52px] bg-blue-500/[0.08] blur-[75px]" />
             <div className="absolute -bottom-10 left-[8%] right-[8%] h-16 rounded-[50%] bg-black/90 blur-3xl" />
 
