@@ -1,11 +1,131 @@
 import fs from "fs/promises";
 import path from "path";
 import { NextResponse } from "next/server";
+import { get } from "@vercel/blob";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
+
+async function readDocumentFile(
+  documentUrl: string
+): Promise<Buffer> {
+  if (
+    documentUrl.startsWith("https://") &&
+    documentUrl.includes(
+      ".blob.vercel-storage.com/"
+    )
+  ) {
+    const blob = await get(
+      documentUrl,
+      {
+        access: "private",
+      }
+    );
+
+    if (
+      !blob ||
+      blob.statusCode !== 200
+    ) {
+      throw new Error(
+        "BLOB_FILE_NOT_FOUND"
+      );
+    }
+
+    const arrayBuffer =
+      await new Response(
+        blob.stream
+      ).arrayBuffer();
+
+    return Buffer.from(
+      arrayBuffer
+    );
+  }
+
+  const cleanUrl = documentUrl
+    .split("?")[0]
+    .replace(/^\/+/, "");
+
+  let baseDirectory: string;
+  let relativePath: string;
+
+  if (
+    cleanUrl.startsWith(
+      "storage/uploads/"
+    )
+  ) {
+    baseDirectory = path.resolve(
+      process.cwd(),
+      "storage",
+      "uploads"
+    );
+
+    relativePath = cleanUrl.slice(
+      "storage/uploads/".length
+    );
+  } else if (
+    cleanUrl.startsWith(
+      "uploads/"
+    )
+  ) {
+    baseDirectory = path.resolve(
+      process.cwd(),
+      "public",
+      "uploads"
+    );
+
+    relativePath = cleanUrl.slice(
+      "uploads/".length
+    );
+  } else {
+    throw new Error(
+      "INVALID_DOCUMENT_PATH"
+    );
+  }
+
+  if (!relativePath) {
+    throw new Error(
+      "INVALID_DOCUMENT_PATH"
+    );
+  }
+
+  const filePath = path.resolve(
+    baseDirectory,
+    relativePath
+  );
+
+  if (
+    !filePath.startsWith(
+      `${baseDirectory}${path.sep}`
+    )
+  ) {
+    throw new Error(
+      "UNSAFE_DOCUMENT_PATH"
+    );
+  }
+
+  try {
+    return await fs.readFile(
+      filePath
+    );
+  } catch (error) {
+    const fileError =
+      error as {
+        code?: string;
+      };
+
+    if (
+      fileError.code === "ENOENT"
+    ) {
+      throw new Error(
+        "LOCAL_FILE_NOT_FOUND"
+      );
+    }
+
+    throw error;
+  }
+}
 
 export async function GET(
   request: Request,
@@ -21,7 +141,8 @@ export async function GET(
     if (!session?.user?.id) {
       return NextResponse.json(
         {
-          error: "يجب تسجيل الدخول أولًا",
+          error:
+            "يجب تسجيل الدخول أولًا",
         },
         {
           status: 401,
@@ -38,7 +159,8 @@ export async function GET(
     ) {
       return NextResponse.json(
         {
-          error: "رقم المستند غير صحيح",
+          error:
+            "رقم المستند غير صحيح",
         },
         {
           status: 400,
@@ -46,10 +168,6 @@ export async function GET(
       );
     }
 
-    /*
-     * لا نحصل على المستند إلا إذا كان المشروع
-     * مملوكًا للمستخدم الحالي.
-     */
     const document =
       await prisma.document.findFirst({
         where: {
@@ -70,101 +188,11 @@ export async function GET(
     if (!document) {
       return NextResponse.json(
         {
-          error: "المستند غير موجود",
+          error:
+            "المستند غير موجود",
         },
         {
           status: 404,
-        }
-      );
-    }
-
-    const cleanUrl = document.url
-      .split("?")[0]
-      .replace(/^\/+/, "");
-
-    let baseDirectory: string;
-    let relativePath: string;
-
-    /*
-     * الملفات الجديدة الخاصة.
-     */
-    if (
-      cleanUrl.startsWith(
-        "storage/uploads/"
-      )
-    ) {
-      baseDirectory = path.resolve(
-        process.cwd(),
-        "storage",
-        "uploads"
-      );
-
-      relativePath = cleanUrl.slice(
-        "storage/uploads/".length
-      );
-    }
-
-    /*
-     * الملفات القديمة.
-     */
-    else if (
-      cleanUrl.startsWith(
-        "uploads/"
-      )
-    ) {
-      baseDirectory = path.resolve(
-        process.cwd(),
-        "public",
-        "uploads"
-      );
-
-      relativePath = cleanUrl.slice(
-        "uploads/".length
-      );
-    } else {
-      return NextResponse.json(
-        {
-          error:
-            "مسار ملف المستند غير صالح",
-        },
-        {
-          status: 404,
-        }
-      );
-    }
-
-    if (!relativePath) {
-      return NextResponse.json(
-        {
-          error:
-            "مسار ملف المستند غير صالح",
-        },
-        {
-          status: 404,
-        }
-      );
-    }
-
-    const filePath = path.resolve(
-      baseDirectory,
-      relativePath
-    );
-
-    /*
-     * منع ../ ومحاولات الخروج من uploads.
-     */
-    if (
-      !filePath.startsWith(
-        `${baseDirectory}${path.sep}`
-      )
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "مسار ملف المستند غير مسموح",
-        },
-        {
-          status: 403,
         }
       );
     }
@@ -173,25 +201,46 @@ export async function GET(
 
     try {
       fileBuffer =
-        await fs.readFile(filePath);
-    } catch (error) {
-      const fileError =
-        error as {
-          code?: string;
-        };
-
-      if (
-        fileError.code === "ENOENT"
-      ) {
-        return NextResponse.json(
-          {
-            error:
-              "ملف المستند غير موجود على الخادم",
-          },
-          {
-            status: 404,
-          }
+        await readDocumentFile(
+          document.url
         );
+    } catch (error) {
+      if (
+        error instanceof Error
+      ) {
+        if (
+          error.message ===
+            "INVALID_DOCUMENT_PATH" ||
+          error.message ===
+            "LOCAL_FILE_NOT_FOUND" ||
+          error.message ===
+            "BLOB_FILE_NOT_FOUND"
+        ) {
+          return NextResponse.json(
+            {
+              error:
+                "ملف المستند غير موجود على الخادم",
+            },
+            {
+              status: 404,
+            }
+          );
+        }
+
+        if (
+          error.message ===
+          "UNSAFE_DOCUMENT_PATH"
+        ) {
+          return NextResponse.json(
+            {
+              error:
+                "مسار ملف المستند غير مسموح",
+            },
+            {
+              status: 403,
+            }
+          );
+        }
       }
 
       throw error;
@@ -227,9 +276,6 @@ export async function GET(
         "download"
       ) === "1";
 
-    /*
-     * اسم ASCII احتياطي + الاسم الأصلي UTF-8.
-     */
     const encodedFileName =
       encodeURIComponent(
         document.name
