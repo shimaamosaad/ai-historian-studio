@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { saveEntities } from "@/lib/ai/saveEntities";
+import { del } from "@vercel/blob";
 
 import fs from "fs/promises";
 import path from "path";
@@ -356,6 +357,20 @@ async function deletePhysicalFile(
   }
 
   try {
+    /*
+     * الملفات الجديدة المحفوظة على Vercel Blob.
+     * نحذف الرابط نفسه من التخزين الخارجي.
+     */
+    if (
+      documentUrl.startsWith("https://") &&
+      documentUrl.includes(
+        ".blob.vercel-storage.com/"
+      )
+    ) {
+      await del(documentUrl);
+      return;
+    }
+
     const cleanUrl = documentUrl
       .split("?")[0]
       .replace(/^\/+/, "");
@@ -383,7 +398,7 @@ async function deletePhysicalFile(
       | null = null;
 
     /*
-     * الملفات الجديدة الخاصة:
+     * الملفات المحلية الخاصة القديمة:
      * /storage/uploads/filename.pdf
      */
     if (
@@ -401,11 +416,8 @@ async function deletePhysicalFile(
     }
 
     /*
-     * الملفات القديمة العامة:
+     * الملفات المحلية العامة القديمة:
      * /uploads/filename.pdf
-     *
-     * لأن الملفات القديمة كانت محفوظة داخل:
-     * public/uploads
      */
     else if (
       cleanUrl.startsWith(
@@ -444,9 +456,7 @@ async function deletePhysicalFile(
 
     /*
      * حماية من Path Traversal.
-     *
-     * لا نسمح بالحذف إلا إذا كان الملف
-     * داخل مجلد uploads المسموح به فعلًا.
+     * لا نسمح بالحذف إلا من مجلد uploads المسموح به.
      */
     const isInsideAllowedDirectory =
       resolvedFilePath.startsWith(
