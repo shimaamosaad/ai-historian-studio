@@ -58,7 +58,7 @@ export default function Features() {
     <section
       id="platform"
       dir="rtl"
-      className="relative overflow-hidden border-t border-blue-400/10 bg-[#020712] py-24 text-white"
+      className="relative overflow-hidden border-t border-blue-400/10 bg-[#020712] py-14 text-white md:py-20 lg:py-24"
     >
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-[8%] top-0 h-72 w-72 rounded-full bg-blue-500/10 blur-[110px]" />
@@ -73,32 +73,32 @@ export default function Features() {
             أدوات بحثية متكاملة
           </div>
 
-          <h2 className="mt-6 text-4xl font-black leading-tight md:text-5xl">
+          <h2 className="mt-4 text-3xl font-black leading-tight sm:text-4xl md:mt-6 md:text-5xl">
             كل ما يحتاجه الباحث
             <span className="mt-2 block bg-gradient-to-l from-[#ffe5a0] via-[#efb64a] to-[#c97a17] bg-clip-text text-transparent">
               في منصة واحدة
             </span>
           </h2>
 
-          <p className="mt-6 text-lg leading-9 text-slate-400">
+          <p className="mt-4 text-base leading-8 text-slate-400 md:mt-6 md:text-lg md:leading-9">
             من رفع المصدر حتى بناء التقرير، يساعدك أثر على تنظيم المعرفة
 التاريخية وتحليلها واكتشاف الشخصيات والأحداث والعلاقات بصورة أسرع وأوضح.
           </p>
         </div>
 
-        <div className="mt-14 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-9 grid gap-5 md:mt-14 md:grid-cols-2 xl:grid-cols-3">
           {features.map((feature, index) => {
             const Icon = feature.icon;
 
             return (
               <article
                 key={feature.title}
-                className="group relative overflow-hidden rounded-[24px] border border-blue-400/15 bg-[#061225]/78 p-6 backdrop-blur-xl transition duration-300 hover:-translate-y-1.5 hover:border-blue-300/40 hover:shadow-[0_22px_60px_rgba(15,64,140,.17)]"
+                className="group relative overflow-hidden rounded-[24px] border border-blue-400/15 bg-[#061225]/78 p-5 backdrop-blur-xl transition duration-300 hover:-translate-y-1.5 hover:border-blue-300/40 hover:shadow-[0_22px_60px_rgba(15,64,140,.17)] md:p-6"
               >
                 <div className="absolute left-0 top-0 h-px w-full bg-gradient-to-r from-transparent via-blue-400/35 to-transparent opacity-0 transition group-hover:opacity-100" />
 
                 <div className="flex items-start justify-between gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-400/30 bg-blue-500/[0.08] text-blue-300 shadow-[0_12px_28px_rgba(37,99,235,.12)] transition group-hover:border-amber-300/35 group-hover:text-amber-300">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-blue-400/30 bg-blue-500/[0.08] text-blue-300 shadow-[0_12px_28px_rgba(37,99,235,.12)] transition group-hover:border-amber-300/35 group-hover:text-amber-300 md:h-14 md:w-14">
                     <Icon className="h-7 w-7" />
                   </div>
 
@@ -107,11 +107,11 @@ export default function Features() {
                   </span>
                 </div>
 
-                <h3 className="mt-6 text-2xl font-black text-white">
+                <h3 className="mt-4 text-xl font-black text-white md:mt-6 md:text-2xl">
                   {feature.title}
                 </h3>
 
-                <p className="mt-4 min-h-[84px] text-base leading-7 text-slate-400">
+                <p className="mt-3 text-sm leading-6 text-slate-400 md:mt-4 md:min-h-[84px] md:text-base md:leading-7">
                   {feature.description}
                 </p>
 

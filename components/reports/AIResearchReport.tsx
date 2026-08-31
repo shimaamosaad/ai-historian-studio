@@ -218,14 +218,14 @@ function ReportSection({
           flex cursor-pointer
           list-none items-center
           justify-between gap-4
-          px-5 py-4
+          px-4 py-4 sm:px-6
           transition
           hover:bg-white/[0.025]
           sm:px-6
           [&::-webkit-details-marker]:hidden
         "
       >
-        <div className="flex min-w-0 items-center gap-4">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
           <div
             className="
               flex h-11 w-11
@@ -294,7 +294,7 @@ function ReportSection({
       <div
         className="
           border-t border-white/[0.07]
-          px-5 py-5
+          px-4 py-5 sm:px-6
           sm:px-6
         "
       >
@@ -489,7 +489,7 @@ export default function AIResearchReport({
           rounded-3xl
           border border-amber-300/15
           bg-[#081526]
-          px-5 py-6
+          px-4 py-5 sm:px-7 sm:py-6
           shadow-xl shadow-black/15
           sm:px-7
         "

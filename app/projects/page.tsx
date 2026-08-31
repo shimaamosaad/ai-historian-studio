@@ -320,24 +320,24 @@ export default function ProjectsPage() {
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.018)_1px,transparent_1px)] bg-[size:48px_48px]" />
       </div>
 
-      <div className="relative z-10 mx-auto max-w-7xl px-5 py-8 sm:px-6 lg:px-8 lg:py-12">
+      <div className="relative z-10 mx-auto max-w-7xl px-3.5 py-5 sm:px-6 sm:py-8 lg:px-8 lg:py-12">
         {/* Top navigation */}
 
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-5 flex items-center justify-between gap-3 sm:mb-8">
           <Link
             href="/"
-            className="inline-flex items-center gap-3 text-white"
+            className="inline-flex min-w-0 items-center gap-2.5 text-white sm:gap-3"
           >
-            <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-300/25 bg-amber-400/10 text-amber-300">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl sm:h-11 sm:w-11 sm:rounded-2xl border border-amber-300/25 bg-amber-400/10 text-amber-300">
               <BookOpen className="h-5 w-5" />
             </span>
 
             <span>
-              <span className="block text-xl font-black">
+              <span className="block text-lg font-black sm:text-xl">
                 أثر
               </span>
 
-              <span className="block text-[10px] font-bold tracking-[0.18em] text-blue-300">
+              <span className="hidden text-[10px] font-bold tracking-[0.18em] text-blue-300 min-[380px]:block">
                 AI HISTORIAN
               </span>
             </span>
@@ -345,7 +345,7 @@ export default function ProjectsPage() {
 
           <Link
             href="/"
-            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:border-blue-300/30 hover:bg-blue-400/[0.06] hover:text-blue-200"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm font-semibold text-slate-300 transition hover:border-blue-300/30 hover:bg-blue-400/[0.06] hover:text-blue-200"
           >
             <ArrowLeft className="h-4 w-4" />
             الصفحة الرئيسية
@@ -354,24 +354,24 @@ export default function ProjectsPage() {
 
         {/* Hero header */}
 
-        <section className="relative overflow-hidden rounded-[28px] border border-blue-400/15 bg-gradient-to-l from-blue-950/70 via-slate-950/90 to-slate-950 p-7 shadow-2xl shadow-blue-950/20 sm:p-9 lg:p-11">
+        <section className="relative overflow-hidden rounded-[22px] border border-blue-400/15 bg-gradient-to-l from-blue-950/70 via-slate-950/90 to-slate-950 p-5 sm:rounded-[28px] sm:p-9 shadow-2xl shadow-blue-950/20 sm:p-9 lg:p-11">
           <div className="pointer-events-none absolute left-[-80px] top-[-100px] h-72 w-72 rounded-full bg-blue-500/10 blur-[100px]" />
 
-          <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative flex flex-col gap-6 sm:gap-8 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-400/[0.08] px-4 py-2 text-xs font-bold text-amber-200">
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full sm:mb-5 border border-amber-300/20 bg-amber-400/[0.08] px-4 py-2 text-xs font-bold text-amber-200">
                 <Sparkles className="h-4 w-4" />
                 مساحة العمل البحثية
               </div>
 
-              <h1 className="text-3xl font-black leading-tight sm:text-4xl lg:text-5xl">
+              <h1 className="text-[1.75rem] font-black leading-tight sm:text-4xl lg:text-5xl">
                 مشاريعي{" "}
                 <span className="bg-gradient-to-l from-blue-300 to-cyan-300 bg-clip-text text-transparent">
                   البحثية
                 </span>
               </h1>
 
-              <p className="mt-5 max-w-2xl text-sm leading-8 text-slate-400 sm:text-base">
+              <p className="mt-4 max-w-2xl text-sm leading-7 sm:mt-5 sm:leading-8 text-slate-400 sm:text-base">
                 أَديري مشروعاتك، وارفعي المصادر والوثائق،
                 وتابعي عمليات التحليل واستخراج المعرفة من
                 مكان واحد.
@@ -380,7 +380,7 @@ export default function ProjectsPage() {
 
             <Link
               href="/projects/new"
-              className="group inline-flex shrink-0 items-center justify-center gap-3 rounded-2xl bg-gradient-to-l from-blue-500 to-cyan-400 px-6 py-4 font-black text-slate-950 shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 hover:shadow-blue-500/30"
+              className="group inline-flex w-full shrink-0 items-center justify-center gap-3 rounded-2xl sm:w-auto bg-gradient-to-l from-blue-500 to-cyan-400 px-6 py-4 font-black text-slate-950 shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 hover:shadow-blue-500/30"
             >
               <Plus className="h-5 w-5 transition group-hover:rotate-90" />
               إنشاء مشروع جديد
@@ -391,7 +391,7 @@ export default function ProjectsPage() {
         {/* Statistics */}
 
         {!loading && !error && (
-          <section className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <section className="mt-5 grid grid-cols-2 gap-3 sm:mt-7 sm:gap-4 xl:grid-cols-4">
             <SummaryCard
               title="إجمالي المشروعات"
               value={projects.length}
@@ -431,7 +431,7 @@ export default function ProjectsPage() {
         {!loading &&
           !error &&
           projects.length > 0 && (
-            <section className="mt-7 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4 backdrop-blur-xl">
+            <section className="mt-5 rounded-2xl border sm:mt-7 border-white/[0.08] bg-white/[0.025] p-4 backdrop-blur-xl">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="relative w-full sm:max-w-lg">
                   <Search className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
@@ -465,7 +465,7 @@ export default function ProjectsPage() {
         {/* Loading */}
 
         {loading && (
-          <div className="mt-8 rounded-[28px] border border-white/10 bg-slate-900/50 p-12 text-center backdrop-blur-xl">
+          <div className="mt-6 rounded-[22px] border border-white/10 bg-slate-900/50 p-7 sm:mt-8 sm:rounded-[28px] sm:p-12 text-center backdrop-blur-xl">
             <LoaderCircle className="mx-auto h-10 w-10 animate-spin text-blue-300" />
 
             <p className="mt-5 font-semibold text-slate-300">
@@ -481,7 +481,7 @@ export default function ProjectsPage() {
         {/* Error */}
 
         {!loading && error && (
-          <div className="mt-8 rounded-[28px] border border-red-400/20 bg-red-400/[0.05] p-10 text-center">
+          <div className="mt-6 rounded-[22px] border border-red-400/20 bg-red-400/[0.05] p-6 sm:mt-8 sm:rounded-[28px] sm:p-10 text-center">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-red-400/20 bg-red-400/10 text-red-300">
               <RefreshCw className="h-6 w-6" />
             </div>
@@ -513,7 +513,7 @@ export default function ProjectsPage() {
         {!loading &&
           !error &&
           projects.length === 0 && (
-            <div className="mt-8 overflow-hidden rounded-[28px] border border-dashed border-blue-300/20 bg-gradient-to-b from-blue-500/[0.05] to-transparent p-10 text-center sm:p-14">
+            <div className="mt-6 overflow-hidden rounded-[22px] border border-dashed border-blue-300/20 bg-gradient-to-b from-blue-500/[0.05] to-transparent p-7 text-center sm:mt-8 sm:rounded-[28px] sm:p-14">
               <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl border border-blue-300/20 bg-blue-400/10 text-blue-300">
                 <FolderOpen className="h-9 w-9" />
               </div>
@@ -544,7 +544,7 @@ export default function ProjectsPage() {
           !error &&
           projects.length > 0 &&
           filteredProjects.length === 0 && (
-            <div className="mt-8 rounded-[28px] border border-white/10 bg-white/[0.025] p-10 text-center">
+            <div className="mt-6 rounded-[22px] border border-white/10 bg-white/[0.025] p-7 text-center sm:mt-8 sm:rounded-[28px] sm:p-10">
               <Search className="mx-auto h-10 w-10 text-slate-600" />
 
               <h2 className="mt-5 text-xl font-black">
@@ -570,7 +570,7 @@ export default function ProjectsPage() {
         {!loading &&
           !error &&
           filteredProjects.length > 0 && (
-            <section className="mt-8">
+            <section className="mt-6 sm:mt-8">
               <div className="mb-5 flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-black sm:text-2xl">
@@ -584,7 +584,7 @@ export default function ProjectsPage() {
                 </div>
               </div>
 
-              <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-3">
                 {filteredProjects.map((project) => {
                   const documents =
                     project.documents ?? [];
@@ -600,7 +600,7 @@ export default function ProjectsPage() {
                   return (
                     <article
                       key={project.id}
-                      className="group relative flex min-h-[390px] flex-col overflow-hidden rounded-[26px] border border-white/[0.09] bg-gradient-to-b from-slate-900/90 to-slate-950/90 p-6 shadow-xl shadow-black/10 transition duration-300 hover:-translate-y-1.5 hover:border-blue-400/30 hover:shadow-blue-950/30"
+                      className="group relative flex flex-col overflow-hidden rounded-[22px] border border-white/[0.09] bg-gradient-to-b from-slate-900/90 to-slate-950/90 p-4 sm:min-h-[390px] sm:rounded-[26px] sm:p-6 shadow-xl shadow-black/10 transition duration-300 hover:-translate-y-1.5 hover:border-blue-400/30 hover:shadow-blue-950/30"
                     >
                       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-300/40 to-transparent opacity-0 transition group-hover:opacity-100" />
 
@@ -637,18 +637,18 @@ export default function ProjectsPage() {
                         </button>
                       </div>
 
-                      <div className="relative mt-6">
-                        <h3 className="line-clamp-2 text-xl font-black leading-8 text-white transition group-hover:text-blue-200">
+                      <div className="relative mt-5 sm:mt-6">
+                        <h3 className="line-clamp-2 text-lg font-black leading-7 sm:text-xl sm:leading-8 text-white transition group-hover:text-blue-200">
                           {project.title}
                         </h3>
 
-                        <p className="mt-3 line-clamp-3 min-h-[72px] text-sm leading-6 text-slate-400">
+                        <p className="mt-3 line-clamp-3 text-sm leading-6 sm:min-h-[72px] text-slate-400">
                           {project.description ||
                             "لا يوجد وصف مضاف لهذا المشروع حتى الآن."}
                         </p>
                       </div>
 
-                      <div className="relative mt-6 space-y-3 rounded-2xl border border-white/[0.06] bg-black/10 p-4">
+                      <div className="relative mt-5 space-y-3 rounded-2xl border border-white/[0.06] bg-black/10 p-3.5 sm:mt-6 sm:p-4">
                         <ProjectInfo
                           icon={
                             <CalendarDays className="h-4 w-4" />
@@ -685,7 +685,7 @@ export default function ProjectsPage() {
                         </div>
                       </div>
 
-                      <div className="relative mt-auto pt-6">
+                      <div className="relative mt-auto pt-5 sm:pt-6">
                         <p className="mb-4 text-xs text-slate-600">
                           أُنشئ في{" "}
                           {formatDate(
@@ -726,18 +726,18 @@ function SummaryCard({
   iconClassName: string;
 }) {
   return (
-    <div className="group rounded-2xl border border-white/[0.08] bg-white/[0.025] p-5 backdrop-blur-xl transition hover:border-blue-300/20 hover:bg-white/[0.04]">
-      <div className="flex items-center justify-between gap-4">
+    <div className="group rounded-2xl border border-white/[0.08] bg-white/[0.025] p-3.5 sm:p-5 backdrop-blur-xl transition hover:border-blue-300/20 hover:bg-white/[0.04]">
+      <div className="flex items-center justify-between gap-2 sm:gap-4">
         <div>
-          <p className="text-sm font-semibold text-slate-400">
+          <p className="text-xs font-semibold text-slate-400 sm:text-sm">
             {title}
           </p>
 
-          <p className="mt-2 text-3xl font-black text-white">
+          <p className="mt-1.5 text-2xl font-black text-white sm:mt-2 sm:text-3xl">
             {value}
           </p>
 
-          <p className="mt-1 text-xs text-slate-600">
+          <p className="mt-1 hidden text-xs text-slate-600 sm:block">
             {description}
           </p>
         </div>

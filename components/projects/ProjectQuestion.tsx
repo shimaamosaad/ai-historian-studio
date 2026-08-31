@@ -431,9 +431,9 @@ export default function ProjectQuestion({
     <section
       id="project-research-assistant"
       dir="rtl"
-      className="mt-8 overflow-hidden rounded-3xl border border-amber-400/15 bg-[#081526] shadow-2xl shadow-black/20"
+      className="mt-6 overflow-hidden rounded-2xl sm:mt-8 sm:rounded-3xl border border-amber-400/15 bg-[#081526] shadow-2xl shadow-black/20"
     >
-      <div className="border-b border-white/10 px-5 py-5 sm:px-6">
+      <div className="border-b border-white/10 px-4 py-5 sm:px-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-amber-400/20 bg-amber-400/[0.07] text-amber-300">
@@ -492,8 +492,8 @@ export default function ProjectQuestion({
         </div>
       </div>
 
-      <div className="p-5 sm:p-6">
-        <div className="rounded-2xl border border-white/10 bg-slate-950/25 p-4">
+      <div className="p-4 sm:p-6">
+        <div className="rounded-2xl border border-white/10 bg-slate-950/25 p-3 sm:p-4">
           <textarea
             value={question}
             onChange={(event) =>
@@ -578,7 +578,7 @@ export default function ProjectQuestion({
                   key={item.id}
                   className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/20"
                 >
-                  <div className="border-b border-white/[0.06] px-5 py-4">
+                  <div className="border-b border-white/[0.06] px-4 py-4 sm:px-5">
                     <p className="text-xs font-semibold text-amber-300">
                       السؤال{" "}
                       {index + 1}
@@ -591,7 +591,7 @@ export default function ProjectQuestion({
                     </p>
                   </div>
 
-                  <div className="p-5">
+                  <div className="p-4 sm:p-5">
                     <div className="flex items-center gap-2">
                       <BookOpen className="h-4 w-4 text-cyan-300" />
 

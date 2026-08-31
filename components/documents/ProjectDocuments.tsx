@@ -18,7 +18,7 @@ export default function ProjectDocuments({
       dir="rtl"
       className="overflow-hidden rounded-2xl border border-white/10 bg-[#081526]"
     >
-      <div className="flex flex-col gap-3 border-b border-white/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 border-b border-white/10 px-4 py-4 sm:flex-row sm:px-5 sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-amber-300/15 bg-amber-300/[0.06] text-amber-300">
             <UploadCloud className="h-5 w-5" />
@@ -36,7 +36,7 @@ export default function ProjectDocuments({
         </div>
       </div>
 
-      <div className="p-4 sm:p-5">
+      <div className="p-3 sm:p-5">
         <DocumentUpload
           projectId={projectId}
           onUploaded={() => {
