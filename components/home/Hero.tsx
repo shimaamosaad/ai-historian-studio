@@ -5,7 +5,6 @@ import { auth } from "@/auth";
 import LogoutButton from "@/components/home/LogoutButton";
 import {
   ArrowLeft,
-  Bell,
   BookOpenText,
   BrainCircuit,
   Building2,
@@ -75,7 +74,7 @@ export default async function Hero() {
       </div>
 
       <header className="relative z-30 border-b border-white/[0.07] bg-[#020713]/92 backdrop-blur-2xl">
-        <div className="mx-auto flex h-[68px] max-w-[1380px] items-center gap-3 px-4 lg:px-6">
+        <div className="mx-auto flex h-[68px] max-w-[1380px] items-center gap-2 px-4 xl:px-5 2xl:gap-3 2xl:px-6">
           <details className="group relative shrink-0 xl:hidden">
             <summary
               aria-label="فتح القائمة"
@@ -128,12 +127,12 @@ export default async function Hero() {
             </div>
           </details>
 
-          <Link href="/" className="flex shrink-0 items-center gap-4">
-            <span className="bg-gradient-to-b from-[#ffe79b] via-[#eba62e] to-[#a85c08] bg-clip-text text-[3.4rem] font-black leading-none text-transparent">
+          <Link href="/" className="flex shrink-0 items-center gap-3 2xl:gap-4">
+            <span className="bg-gradient-to-b from-[#ffe79b] via-[#eba62e] to-[#a85c08] bg-clip-text text-[3rem] font-black leading-none text-transparent 2xl:text-[3.4rem]">
               أثر
             </span>
             <span
-              className="hidden border-r border-white/10 pr-4 sm:block"
+              className="hidden border-r border-white/10 pr-4 2xl:block"
               dir="ltr"
             >
               <span className="block text-sm font-bold tracking-[0.34em] text-[#ecd79f]">
@@ -145,35 +144,35 @@ export default async function Hero() {
             </span>
           </Link>
 
-          <nav className="mr-3 hidden items-center gap-1 xl:flex">
+          <nav className="mr-2 hidden items-center gap-0.5 xl:flex 2xl:mr-3 2xl:gap-1">
             <Link
               href="/"
-              className="relative rounded-xl px-4 py-3 text-sm font-black text-blue-300"
+              className="relative rounded-xl px-3 py-3 text-sm font-black text-blue-300 2xl:px-4"
             >
               الرئيسية
               <span className="absolute inset-x-4 -bottom-[16px] h-px bg-gradient-to-r from-blue-400 via-amber-300 to-blue-400 shadow-[0_0_14px_rgba(96,165,250,.75)]" />
             </Link>
             <a
               href="#platform"
-              className="rounded-xl px-4 py-3 text-sm font-bold text-slate-300 transition hover:text-blue-200"
+              className="rounded-xl px-3 py-3 text-sm font-bold text-slate-300 transition hover:text-blue-200 2xl:px-4"
             >
               المنصة
             </a>
             <Link
               href="/projects"
-              className="rounded-xl px-4 py-3 text-sm font-bold text-slate-300 transition hover:text-blue-200"
+              className="rounded-xl px-3 py-3 text-sm font-bold text-slate-300 transition hover:text-blue-200 2xl:px-4"
             >
               المشاريع
             </Link>
             <a
               href="#domains"
-              className="rounded-xl px-4 py-3 text-sm font-bold text-slate-300 transition hover:text-blue-200"
+              className="rounded-xl px-3 py-3 text-sm font-bold text-slate-300 transition hover:text-blue-200 2xl:px-4"
             >
               التخصصات
             </a>
             <a
               href="#pricing"
-              className="rounded-xl px-4 py-3 text-sm font-bold text-slate-300 transition hover:text-blue-200"
+              className="rounded-xl px-3 py-3 text-sm font-bold text-slate-300 transition hover:text-blue-200 2xl:px-4"
             >
               الأسعار
             </a>
@@ -189,16 +188,8 @@ export default async function Hero() {
             </span>
           </div>
 
-          <button
-            type="button"
-            aria-label="الإشعارات"
-            className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-400/20 bg-blue-500/[0.035] text-blue-300 xl:flex"
-          >
-            <Bell className="h-5 w-5" />
-          </button>
-
           {session?.user ? (
-            <div className="hidden shrink-0 items-center gap-2 xl:flex">
+            <div className="mr-auto hidden shrink-0 items-center gap-2 xl:flex 2xl:mr-0">
               <Link
                 href="/projects"
                 className="inline-flex items-center gap-2 rounded-xl border border-blue-400/45 bg-blue-500/[0.07] px-3 py-2 text-sm font-black text-blue-200 transition hover:bg-blue-500/12"
@@ -207,14 +198,28 @@ export default async function Hero() {
                 مشاريعي
               </Link>
 
-              <Link
-                href="/subscription"
-                className="inline-flex items-center gap-2 rounded-xl border border-amber-400/35 bg-amber-400/[0.07] px-3 py-2 text-sm font-black text-amber-200 transition hover:bg-amber-400/[0.12]"
-              >
-                اشتراكي
-              </Link>
+              <details className="group relative">
+                <summary className="flex cursor-pointer list-none items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-3 py-2 text-sm font-black text-slate-200 transition hover:border-amber-400/30 hover:bg-white/[0.07] [&::-webkit-details-marker]:hidden">
+                  <Users className="h-4 w-4 text-amber-300" />
+                  حسابي
+                  <ChevronLeft className="h-4 w-4 text-slate-500 transition-transform group-open:-rotate-90" />
+                </summary>
 
-              <LogoutButton />
+                <div className="absolute left-0 top-12 z-50 w-52 overflow-hidden rounded-2xl border border-white/10 bg-[#061122]/98 p-2 shadow-2xl backdrop-blur-xl">
+                  <Link
+                    href="/subscription"
+                    className="flex items-center rounded-xl px-3 py-2.5 text-sm font-black text-amber-200 transition hover:bg-amber-400/10"
+                  >
+                    اشتراكي
+                  </Link>
+
+                  <div className="my-1 border-t border-white/10" />
+
+                  <div className="[&>button]:!w-full">
+                    <LogoutButton />
+                  </div>
+                </div>
+              </details>
             </div>
           ) : (
             <div className="hidden shrink-0 items-center gap-2 xl:flex">
