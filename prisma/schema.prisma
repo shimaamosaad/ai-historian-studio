@@ -8,14 +8,57 @@ datasource db {
 }
 
 model User {
-  id           String        @id @default(cuid())
-  name         String?
-  email        String        @unique
-  password     String
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  projects     Project[]
-  subscription Subscription?
+  id              String           @id @default(cuid())
+  name            String?
+  email           String           @unique
+  password        String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  projects        Project[]
+  academicReviews AcademicReview[]
+  subscription    Subscription?
+}
+
+model AcademicReview {
+  id              Int                     @id @default(autoincrement())
+  userId          String
+  name            String
+  originalUrl     String
+  fileType        String
+  reviewLevel     String                  @default("FULL")
+  status          String                  @default("QUEUED")
+  totalPages      Int                     @default(0)
+  processedPages  Int                     @default(0)
+  billedPages     Int                     @default(0)
+  usageSource     String?
+  processingError String?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  user            User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sections        AcademicReviewSection[]
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+model AcademicReviewSection {
+  id               Int            @id @default(autoincrement())
+  reviewId         Int
+  sectionIndex     Int
+  startPage        Int
+  endPage          Int
+  originalText     String
+  reviewedText     String?
+  changes          String?
+  processingStatus String         @default("PENDING")
+  processingError  String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  review           AcademicReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, sectionIndex])
+  @@index([reviewId])
+  @@index([processingStatus])
 }
 
 model Subscription {

@@ -32,7 +32,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.push("/projects");
+      router.push("/");
       router.refresh();
     } catch (error) {
       console.error("LOGIN_ERROR:", error);
@@ -58,7 +58,7 @@ export default function LoginPage() {
           </h1>
 
           <p className="mt-2 text-sm text-slate-400">
-            أدخلي بيانات حسابك للمتابعة إلى مشروعاتك
+            أدخلي بيانات حسابك للمتابعة إلى منصة أثر
           </p>
         </div>
 

@@ -94,6 +94,9 @@ export default async function Hero() {
                 <Link href="/projects" className="rounded-xl px-4 py-3 text-sm font-bold text-slate-200 hover:bg-white/5">
                   المشاريع
                 </Link>
+                <Link href="/academic-review" className="rounded-xl px-4 py-3 text-sm font-bold text-amber-200 hover:bg-amber-400/10">
+                  المراجعة اللغوية والأكاديمية للرسائل العلمية
+                </Link>
                 <a href="#domains" className="rounded-xl px-4 py-3 text-sm font-bold text-slate-200 hover:bg-white/5">
                   التخصصات
                 </a>
@@ -159,10 +162,10 @@ export default async function Hero() {
               المنصة
             </a>
             <Link
-              href="/projects"
-              className="rounded-xl px-3 py-3 text-sm font-bold text-slate-300 transition hover:text-blue-200 2xl:px-4"
+              href="/academic-review"
+              className="max-w-[155px] rounded-xl px-2 py-2 text-center text-[11px] font-bold leading-5 text-amber-200 transition hover:bg-amber-400/[0.06] hover:text-amber-100 2xl:max-w-[175px] 2xl:px-3 2xl:text-xs"
             >
-              المشاريع
+              المراجعة اللغوية والأكاديمية للرسائل العلمية
             </Link>
             <a
               href="#domains"
